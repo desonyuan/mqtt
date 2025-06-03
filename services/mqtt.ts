@@ -162,7 +162,9 @@ class MqttService {
     if (this.reconnectTimerId) {
       return;
     }
-
+    if (!this.isConnected) {
+      return;
+    }
     console.log('计划5秒后重新连接MQTT服务器');
     this.reconnectTimerId = setTimeout(() => {
       this.reconnectTimerId = null;
@@ -206,7 +208,7 @@ class MqttService {
               console.log(`已重新订阅主题: ${topic}`);
             },
             onError: (error) => {
-              console.error(`重新订阅主题${topic}失败:`, error);
+              console.log(`重新订阅主题${topic}失败:`, error);
             },
           });
         }
@@ -324,6 +326,8 @@ class MqttService {
           try {
             // @d11/react-native-mqtt似乎没有提供取消订阅的方法，这里可能需要特殊处理
             // 目前先从本地记录中删除
+            this.disconnect();
+            this.connect();
             console.log(`已取消订阅主题: ${topic}`);
           } catch (error) {
             console.error(`取消订阅主题${topic}失败:`, error);
@@ -334,12 +338,13 @@ class MqttService {
       // 完全取消订阅
       this.subscriptions.delete(topic);
       this.messageCallbacks.delete(topic);
-
       // 如果已连接，通知服务器取消订阅
       if (this.client && this.isConnected) {
         try {
           // @d11/react-native-mqtt似乎没有提供取消订阅的方法，这里可能需要特殊处理
           // 目前先从本地记录中删除
+          this.disconnect();
+          this.connect();
           console.log(`已取消订阅主题: ${topic}`);
         } catch (error) {
           console.error(`取消订阅主题${topic}失败:`, error);

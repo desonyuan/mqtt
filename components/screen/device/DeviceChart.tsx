@@ -4,17 +4,33 @@ import {LineChart} from 'react-native-gifted-charts';
 
 import {ThemedText} from '@/components/ThemedText';
 import {useThemeColor} from '@/hooks/useThemeColor';
-import {SensorData, realTimeChart} from '@/utils/mockData';
 import {useFocusEffect} from 'expo-router';
 import {Chip} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { type Data, type DataPayload } from '@/proto/data_payload_pb';
+import mqttService from '@/services/mqtt';
 
 const MAX_DATA_POINTS = 20; // 显示最近20个数据点
 const {width} = Dimensions.get('window');
 
-export default function DeviceChart() {
+interface SensorData {
+  temperature: number;
+  humidity: number;
+  light: number;
+  soil_moisture: number;
+  co2: number;
+  device_uuid: string;
+  timestamp: number;
+}
+
+interface DeviceChartProps {
+  deviceId: string;
+  time: number;
+}
+
+export default function DeviceChart({ deviceId,time }: DeviceChartProps) {
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
-  const [mockStatus, setMockStatus] = useState<'running' | 'stopped'>('stopped');
+  const [dataStatus, setDataStatus] = useState<'connected' | 'disconnected'>('disconnected');
   const [loading, setLoading] = useState(true);
   const [selectedChartIndex, setSelectedChartIndex] = useState(0);
 
@@ -35,73 +51,70 @@ export default function DeviceChart() {
     {name: '土壤湿度', unit: '%', color: '#4CAF50', accessor: (d: SensorData) => d.soil_moisture, icon: '🌱'},
     {name: ' CO2', unit: 'ppm', color: '#FF9800', accessor: (d: SensorData) => d.co2, icon: '☁️'},
   ];
+  
+  // 处理MQTT传感器数据
+  const handleSensorData = (payload: DataPayload) => {
+    console.log(payload, 'MQTT payload received');
+
+    if (!payload.datasets || payload.datasets.length === 0) {
+      return;
+    }
+
+    // 查找当前设备的数据
+    const deviceData = payload.datasets.find((data) => data.deviceUuid === deviceId);
+    if (deviceData) {
+      // 将设备数据转换为SensorData对象
+      const newData: SensorData = {
+        temperature: deviceData.temperature,
+        humidity: deviceData.humidity,
+        light: deviceData.light,
+        soil_moisture: deviceData.soilMoisture,
+        co2: deviceData.co2,
+        device_uuid: deviceData.deviceUuid,
+        timestamp: deviceData.timestamp + time,
+      };
+      
+      // 更新传感器数据数组，保留最近的数据
+      setSensorData(prevData => {
+        const updatedData = [...prevData, newData];
+        return updatedData.slice(-MAX_DATA_POINTS); // 只保留最近的MAX_DATA_POINTS个数据点
+      });
+      
+      setLoading(false);
+      setDataStatus('connected');
+    }
+  };
 
   // 监听页面焦点变化
   useFocusEffect(
     React.useCallback(() => {
-      // 页面获得焦点时启动模拟数据生成
-      console.log('页面获得焦点，启动模拟数据生成');
-      startDataGeneration();
+      // 页面获得焦点时订阅MQTT主题
+      console.log('页面获得焦点，订阅MQTT主题');
+      // 订阅设备数据主题
+      mqttService.subscribeDeviceData(deviceId, handleSensorData);
 
       // 清理函数，页面失去焦点时执行
       return () => {
-        console.log('页面失去焦点，停止模拟数据生成');
-        stopDataGeneration();
+        console.log('页面失去焦点，取消MQTT订阅');
+        mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
       };
-    }, [])
+    }, [deviceId])
   );
 
   // 组件卸载时清理
   useEffect(() => {
     return () => {
-      console.log('组件卸载，停止模拟数据生成');
-      stopDataGeneration();
+      console.log('组件卸载，取消MQTT订阅');
+      mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
     };
-  }, []);
-
-  // 启动模拟数据生成
-  const startDataGeneration = () => {
-    // 开始生成模拟数据
-    realTimeChart.startGenerating(1000, 5);
-    setMockStatus('running');
-    setLoading(false);
-
-    // 设置定时器获取数据
-    const intervalId = setInterval(() => {
-      setSensorData(realTimeChart.getData());
-    }, 1000);
-
-    // 保存intervalId以便后续清除
-    (window as any).sensorDataInterval = intervalId;
-  };
-
-  // 停止模拟数据生成
-  const stopDataGeneration = () => {
-    realTimeChart.stopGenerating();
-    setMockStatus('stopped');
-
-    // 清除定时器
-    if ((window as any).sensorDataInterval) {
-      clearInterval((window as any).sensorDataInterval);
-      (window as any).sensorDataInterval = null;
-    }
-  };
-
-  // 手动重启数据生成
-  const handleRestart = () => {
-    setLoading(true);
-    stopDataGeneration();
-    setTimeout(() => {
-      startDataGeneration();
-    }, 500);
-  };
+  }, [deviceId]);
 
   // 获取状态的显示样式
-  const getStatusColor = (status: 'running' | 'stopped'): string => {
+  const getStatusColor = (status: 'connected' | 'disconnected'): string => {
     switch (status) {
-      case 'running':
+      case 'connected':
         return '#4CAF50'; // 绿色
-      case 'stopped':
+      case 'disconnected':
         return '#9E9E9E'; // 灰色
       default:
         return '#9E9E9E';
@@ -109,12 +122,12 @@ export default function DeviceChart() {
   };
 
   // 获取状态的显示文本
-  const getStatusText = (status: 'running' | 'stopped'): string => {
+  const getStatusText = (status: 'connected' | 'disconnected'): string => {
     switch (status) {
-      case 'running':
-        return '数据生成中';
-      case 'stopped':
-        return '已停止';
+      case 'connected':
+        return '已连接';
+      case 'disconnected':
+        return '未连接';
       default:
         return '未知状态';
     }
@@ -215,10 +228,10 @@ export default function DeviceChart() {
 
         <View style={styles.chartFooter}>
           <ThemedText style={[styles.chartFooterText, {fontFamily: 'Sarasa'}]}>
-            模拟数据 • {displayData.length} 个数据点
+            实时数据 • {displayData.length} 个数据点
           </ThemedText>
           <ThemedText style={[styles.chartFooterText, {fontFamily: 'Sarasa'}]}>
-            设备ID: {sensorData[0]?.device_uuid || 'N/A'}
+            设备ID: {deviceId || 'N/A'}
           </ThemedText>
         </View>
       </View>
@@ -230,7 +243,7 @@ export default function DeviceChart() {
       <View style={[styles.container, {backgroundColor}]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={chartColor} />
-          <ThemedText style={[styles.loadingText, {fontFamily: 'Sarasa'}]}>生成模拟传感器数据...</ThemedText>
+          <ThemedText style={[styles.loadingText, {fontFamily: 'Sarasa'}]}>等待传感器数据...</ThemedText>
         </View>
       </View>
     );
@@ -242,11 +255,10 @@ export default function DeviceChart() {
         <ThemedText style={[styles.header, {fontFamily: 'Sarasa'}]}>传感器数据</ThemedText>
         <Chip
           mode="outlined"
-          style={{backgroundColor: getStatusColor(mockStatus), opacity: 0.8}}
+          style={{backgroundColor: getStatusColor(dataStatus), opacity: 0.8}}
           textStyle={{fontFamily: 'Sarasa', color: '#fff'}}
-          onPress={handleRestart}
         >
-          {getStatusText(mockStatus)}
+          {getStatusText(dataStatus)}
         </Chip>
       </View>
 

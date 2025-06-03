@@ -4,12 +4,12 @@ import DeviceLog from '@/components/screen/device/DeviceLog';
 import DeviceTable from '@/components/screen/device/DeviceTable';
 import {ThemedView} from '@/components/ThemedView';
 import {useAuth} from '@/contexts/AuthContext';
-import { type Data, type DataPayload } from '@/proto/data_payload_pb';
+import { type Data } from '@/proto/data_payload_pb';
 import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/deviceApi';
 import mqttService from '@/services/mqtt';
 import {useLocalSearchParams} from 'expo-router';
 import React, {useEffect, useMemo, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {ActivityIndicator, StyleSheet, View} from 'react-native';
 import {Button, Text, ToggleButton} from 'react-native-paper';
 
 enum UserRole {
@@ -21,20 +21,22 @@ interface MainDevice {
   device_uuid: string;
   is_online: boolean;
   owner_uuid: string;
-  time?: string;
+  time?: number;
 }
 
 type TabItem = 'chart' | 'table' | 'list' | 'log';
 export default function DeviceScreen() {
-  const {id} = useLocalSearchParams();
+  const {id,time} = useLocalSearchParams();
   const deviceId = Array.isArray(id) ? id[0] : id;
+  const numericTime = time ? parseInt(Array.isArray(time) ? time[0] : time, 10) : 0;
 
   const {userRole} = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [masterSensorData, setMasterSensorData] = useState<Data | null>(null);
   const [slaveDevices, setSlaveDevices] = useState<DeviceOnlineStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabItem>('chart');
+  const [mqttInitialized, setMqttInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // 获取设备的从设备列表
   const fetchSlaveDevices = async () => {
@@ -61,6 +63,7 @@ export default function DeviceScreen() {
           device_uuid: uuid,
           is_online: false, // 默认为离线
           time: new Date().toISOString(), // 当前时间作为默认值
+          owner_uuid: currentDeviceRelation.device_uuid, // 添加所有者UUID
         }));
         console.log(slaveDeviceStatuses, 'slaveDeviceStatusesslaveDeviceStatusesslaveDeviceStatuses');
 
@@ -72,35 +75,10 @@ export default function DeviceScreen() {
     }
   };
 
-  // 处理MQTT传感器数据
-  const handleSensorData = (payload: DataPayload) => {
-    console.log(payload, 'payloadpayloadpayload');
-
-    if (!payload.datasets || payload.datasets.length === 0) {
-      return;
-    }
-
-    // 查找当前设备的数据
-    const deviceData = payload.datasets.find((data) => data.deviceUuid === deviceId);
-    if (deviceData) {
-      setMasterSensorData(deviceData);
-    }
-  };
-
-  // 订阅MQTT主题
-  const subscribeMqtt = () => {
-    console.log(deviceId, 'deviceIddeviceIddeviceIddeviceIddeviceId');
-
-    // 订阅设备数据主题
-    mqttService.subscribeDeviceData(deviceId, handleSensorData);
-  };
-
   // 刷新设备数据
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchSlaveDevices();
-    // 重新订阅MQTT主题
-    subscribeMqtt();
     setRefreshing(false);
   };
 
@@ -108,21 +86,21 @@ export default function DeviceScreen() {
   useEffect(() => {
     const initializeData = async () => {
       setError(null);
+      setLoading(true);
+      setMqttInitialized(false);
 
       try {
         // 确保MQTT连接已经初始化
         await mqttService.connect();
+        setMqttInitialized(true);
 
         // 获取从设备列表
         await fetchSlaveDevices();
-
-        // 订阅MQTT主题
-        subscribeMqtt();
       } catch (error) {
         console.error('初始化失败:', error);
         setError('加载数据失败，请检查网络连接');
       } finally {
-        // setLoading(false);
+        setLoading(false);
       }
     };
 
@@ -130,24 +108,26 @@ export default function DeviceScreen() {
       initializeData();
     }
 
-    // 组件卸载时取消MQTT订阅
+    // 组件卸载时断开MQTT连接
     return () => {
-      mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
+      mqttService.disconnect();
     };
   }, [deviceId]);
 
   const renderContent = useMemo(() => {
+    if (!mqttInitialized) return null;
+    
     switch (tab) {
       case 'chart':
-        return <DeviceChart />;
+        return <DeviceChart deviceId={deviceId} time={numericTime} />;
       case 'table':
         return <DeviceTable />;
       case 'log':
-        return <DeviceLog />;
+        return <DeviceTable />;
       default:
         return <DeviceList />;
     }
-  }, [tab]);
+  }, [tab, deviceId, mqttInitialized, numericTime]);
 
   if (error) {
     return (
@@ -156,6 +136,15 @@ export default function DeviceScreen() {
         <Button mode="contained" onPress={handleRefresh} style={{marginTop: 16}}>
           重试
         </Button>
+      </ThemedView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={styles.loadingText}>正在初始化MQTT连接...</Text>
       </ThemedView>
     );
   }
@@ -191,5 +180,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  loadingText: {
+    marginTop: 10,
   },
 });

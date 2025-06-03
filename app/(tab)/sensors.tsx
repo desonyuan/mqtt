@@ -3,7 +3,6 @@ import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import Search from '@/components/ui/custom/Search';
 import {useAuth} from '@/contexts/AuthContext';
-import {Data, DataPayload} from '@/proto/data_payload';
 import {api} from '@/services/api';
 import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/deviceApi';
 import mqttService from '@/services/mqtt';
@@ -24,7 +23,7 @@ interface MainDevice {
   device_uuid: string;
   is_online: boolean;
   owner_uuid: string;
-  time?: string;
+  time?: number;
 }
 const pageSize = 20;
 type TabItem = 'chart' | 'table' | 'list';
@@ -95,14 +94,15 @@ export default function DeviceScreen() {
       console.log(masterSlaveRelations, '1111111111');
 
       // 查找当前设备的从设备
-      const currentDeviceRelation = masterSlaveRelations.find((relation) => relation.device_uuid === deviceId);
+      const currentDeviceRelation = masterSlaveRelations.find((relation) => relation.device_uuid === id);
 
       if (currentDeviceRelation) {
         // 为每个从设备创建一个状态对象，默认离线
         const slaveDeviceStatuses: DeviceOnlineStatus[] = currentDeviceRelation.slave_device_uuid.map((uuid) => ({
           device_uuid: uuid,
           is_online: false, // 默认为离线
-          time: new Date().toISOString(), // 当前时间作为默认值
+          time: new Date().toISOString(),
+          owner_uuid: currentDeviceRelation.device_uuid // 或者使用适当的所有者ID
         }));
         console.log(slaveDeviceStatuses, 'slaveDeviceStatusesslaveDeviceStatusesslaveDeviceStatuses');
 
@@ -216,7 +216,13 @@ export default function DeviceScreen() {
                 <List.Item
                   onPress={() => {
                     // popRef.current?.present();
-                    router.navigate(`/(stack)/device/${device.device_uuid}`);
+                    router.navigate({
+                      pathname: `/(stack)/device/[id]`,
+                      params: {
+                        id: device.device_uuid,
+                        time: device.time
+                      },
+                    });
                   }}
                   style={{
                     backgroundColor: isEvent ? '#eee' : 'transparent',
