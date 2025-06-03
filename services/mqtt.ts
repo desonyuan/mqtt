@@ -1,7 +1,8 @@
 import {createMqttClient, MqttConfig} from '@d11/react-native-mqtt';
 import {MqttClient} from '@d11/react-native-mqtt/dist/Mqtt/MqttClient';
-import {DataPayload} from '@/proto/data_payload';
-import {ConfigPayload} from '@/proto/config_payload';
+import { fromBinary, toBinary } from "@bufbuild/protobuf";
+import { type DataPayload, DataPayloadSchema } from "@/proto/data_payload_pb";
+import { type ConfigPayload, ConfigPayloadSchema } from "@/proto/config_payload_pb";
 import storage from '@/utils/storage';
 
 // MQTT服务器配置
@@ -36,9 +37,34 @@ const CONFIG_DOWN_TOPIC_FORMAT = 'config/{device_uuid}/down';
 const CONFIG_UP_TOPIC_FORMAT = 'config/{device_uuid}/up';
 
 // 回调函数类型
-export type OnMessageCallback = (topic: string, payload: Uint8Array) => void;
+export type OnMessageCallback = (topic: string, payload: string) => void;
 export type OnConnectCallback = () => void;
 export type OnErrorCallback = (error: Error) => void;
+
+/**
+ * Base64字符串转Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * Uint8Array转Base64字符串
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 /**
  * MQTT客户端管理类
@@ -171,17 +197,8 @@ class MqttService {
         // 如果有之前的订阅，重新订阅
         const onEvent = (data: any) => {
           try {
-            let payload: Uint8Array;
-            if (typeof data.payload === 'string') {
-              payload = new TextEncoder().encode(data.payload);
-            } else if (data.payload instanceof ArrayBuffer) {
-              payload = new Uint8Array(data.payload);
-            } else if (Array.isArray(data.payload)) {
-              payload = new Uint8Array(data.payload);
-            } else {
-              payload = new Uint8Array(0);
-            }
-
+            // 假设MQTT仅传输字符串
+            let payload: string = data.payload;
             callbacks.forEach((callback) => {
               callback(topic, payload);
             });
@@ -264,17 +281,8 @@ class MqttService {
       try {
         const onEvent = (data: any) => {
           try {
-            let payload: Uint8Array;
-            if (typeof data.payload === 'string') {
-              payload = new TextEncoder().encode(data.payload);
-            } else if (data.payload instanceof ArrayBuffer) {
-              payload = new Uint8Array(data.payload);
-            } else if (Array.isArray(data.payload)) {
-              payload = new Uint8Array(data.payload);
-            } else {
-              payload = new Uint8Array(0);
-            }
-
+            // MQTT只传输字符串
+            let payload: string = data.payload;
             callbacks.forEach((callback) => {
               callback(topic, payload);
             });
@@ -432,8 +440,24 @@ class MqttService {
     const topic = this.getDataTopic(deviceUuid);
     this.subscribe(topic, (_, payload) => {
       try {
-        const dataPayload = DataPayload.decode(payload);
-        callback(dataPayload);
+        console.log(`收到原始消息: 类型=${typeof payload}, 长度=${payload.length}`);
+      
+        // 尝试将字符串解码为Base64
+        try {
+          const binaryData = base64ToUint8Array(payload);
+          console.log(`Base64解码后长度: ${binaryData.length}`);
+          
+          // 使用@bufbuild/protobuf的fromBinary解析
+          const dataPayload = fromBinary(DataPayloadSchema, binaryData);
+          console.log(JSON.stringify(dataPayload), 'payloadpayloadpayload');
+          callback(dataPayload);
+        } catch (base64Error) {
+          console.error(`Base64解码失败: ${base64Error}`);
+          
+          // 如果不是有效的Base64编码，尝试直接解析
+          const dataPayload = fromBinary(DataPayloadSchema, new TextEncoder().encode(payload));
+          callback(dataPayload);
+        }
       } catch (error) {
         console.error(`解析设备数据失败: ${error}`);
       }
@@ -447,8 +471,18 @@ class MqttService {
     const topic = this.getConfigUpTopic(deviceUuid);
     this.subscribe(topic, (_, payload) => {
       try {
-        const configPayload = ConfigPayload.decode(payload);
-        callback(configPayload);
+        // 尝试将字符串解码为Base64
+        try {
+          const binaryData = base64ToUint8Array(payload);
+          // 使用@bufbuild/protobuf的fromBinary解析
+          const configPayload = fromBinary(ConfigPayloadSchema, binaryData);
+          callback(configPayload);
+        } catch (base64Error) {
+          console.error(`Base64解码失败: ${base64Error}`);
+          // 如果不是有效的Base64编码，尝试直接解析
+          const configPayload = fromBinary(ConfigPayloadSchema, new TextEncoder().encode(payload));
+          callback(configPayload);
+        }
       } catch (error) {
         console.error(`解析设备配置失败: ${error}`);
       }
@@ -460,8 +494,12 @@ class MqttService {
    */
   sendDeviceConfig(deviceUuid: string, config: ConfigPayload): void {
     const topic = this.getConfigDownTopic(deviceUuid);
-    const payload = ConfigPayload.encode(config).finish();
-    this.publish(topic, payload);
+    // 使用@bufbuild/protobuf的toBinary序列化
+    const binaryData = toBinary(ConfigPayloadSchema, config);
+    // 转换为Base64字符串
+    const base64String = uint8ArrayToBase64(binaryData);
+    // 发布Base64字符串
+    this.publish(topic, base64String);
   }
 
   /**

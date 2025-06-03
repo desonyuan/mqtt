@@ -4,7 +4,7 @@ import DeviceLog from '@/components/screen/device/DeviceLog';
 import DeviceTable from '@/components/screen/device/DeviceTable';
 import {ThemedView} from '@/components/ThemedView';
 import {useAuth} from '@/contexts/AuthContext';
-import {Data, DataPayload} from '@/proto/data_payload';
+import { type Data, type DataPayload } from '@/proto/data_payload_pb';
 import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/deviceApi';
 import mqttService from '@/services/mqtt';
 import {useLocalSearchParams} from 'expo-router';

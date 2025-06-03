@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/ThemedView';
 import SensorDataCard from '@/components/SensorDataCard';
 import mqttService from '@/services/mqtt';
 import { useAuth } from '@/contexts/AuthContext';
-import { Data, DataPayload } from '@/proto/data_payload';
+import { type Data, type DataPayload } from '@/proto/data_payload_pb';
 
 enum UserRole {
   ADMIN = 'admin',

@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/ThemedView';
 import SensorConfigForm from '@/components/SensorConfigForm';
 import mqttService from '@/services/mqtt';
 import { useAuth } from '@/contexts/AuthContext';
-import { ConfigPayload } from '@/proto/config_payload';
+import { type ConfigPayload } from '@/proto/config_payload_pb';
 
 enum UserRole {
   ADMIN = 'admin',
