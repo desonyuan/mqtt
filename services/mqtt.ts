@@ -3,6 +3,7 @@ import {MqttClient} from '@d11/react-native-mqtt/dist/Mqtt/MqttClient';
 import { fromBinary, toBinary } from "@bufbuild/protobuf";
 import { type DataPayload, DataPayloadSchema } from "@/proto/data_payload_pb";
 import { type ConfigPayload, ConfigPayloadSchema } from "@/proto/config_payload_pb";
+import { Buffer } from 'buffer';
 import storage from '@/utils/storage';
 
 // MQTT服务器配置
@@ -45,25 +46,14 @@ export type OnErrorCallback = (error: Error) => void;
  * Base64字符串转Uint8Array
  */
 function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
+  return new Uint8Array(Buffer.from(base64, 'base64'));
 }
 
 /**
  * Uint8Array转Base64字符串
  */
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  return Buffer.from(bytes).toString('base64');
 }
 
 /**
