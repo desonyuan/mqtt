@@ -23,7 +23,7 @@ const DeviceList: FC<Props> = ({}) => {
   const theme = useTheme();
   //  获取设备列表
   const {data, loading} = useRequest(async () => {
-    const res = await api.get('/device');
+    const res = await api.get('/all_devices');
     return res.data as MainDevice[];
   }, {});
 

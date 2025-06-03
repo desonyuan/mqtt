@@ -1,7 +1,9 @@
 import {createMqttClient, MqttConfig} from '@d11/react-native-mqtt';
 import {MqttClient} from '@d11/react-native-mqtt/dist/Mqtt/MqttClient';
-import {DataPayload} from '@/proto/data_payload';
-import {ConfigPayload} from '@/proto/config_payload';
+import { fromBinary, toBinary } from "@bufbuild/protobuf";
+import { type DataPayload, DataPayloadSchema } from "@/proto/data_payload_pb";
+import { type ConfigPayload, ConfigPayloadSchema } from "@/proto/config_payload_pb";
+import { Buffer } from 'buffer';
 import storage from '@/utils/storage';
 
 // MQTT服务器配置
@@ -36,9 +38,23 @@ const CONFIG_DOWN_TOPIC_FORMAT = 'config/{device_uuid}/down';
 const CONFIG_UP_TOPIC_FORMAT = 'config/{device_uuid}/up';
 
 // 回调函数类型
-export type OnMessageCallback = (topic: string, payload: Uint8Array) => void;
+export type OnMessageCallback = (topic: string, payload: string) => void;
 export type OnConnectCallback = () => void;
 export type OnErrorCallback = (error: Error) => void;
+
+/**
+ * Base64字符串转Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+  return new Uint8Array(Buffer.from(base64, 'base64'));
+}
+
+/**
+ * Uint8Array转Base64字符串
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64');
+}
 
 /**
  * MQTT客户端管理类
@@ -146,7 +162,9 @@ class MqttService {
     if (this.reconnectTimerId) {
       return;
     }
-
+    if (!this.isConnected) {
+      return;
+    }
     console.log('计划5秒后重新连接MQTT服务器');
     this.reconnectTimerId = setTimeout(() => {
       this.reconnectTimerId = null;
@@ -171,17 +189,8 @@ class MqttService {
         // 如果有之前的订阅，重新订阅
         const onEvent = (data: any) => {
           try {
-            let payload: Uint8Array;
-            if (typeof data.payload === 'string') {
-              payload = new TextEncoder().encode(data.payload);
-            } else if (data.payload instanceof ArrayBuffer) {
-              payload = new Uint8Array(data.payload);
-            } else if (Array.isArray(data.payload)) {
-              payload = new Uint8Array(data.payload);
-            } else {
-              payload = new Uint8Array(0);
-            }
-
+            // 假设MQTT仅传输字符串
+            let payload: string = data.payload;
             callbacks.forEach((callback) => {
               callback(topic, payload);
             });
@@ -199,7 +208,7 @@ class MqttService {
               console.log(`已重新订阅主题: ${topic}`);
             },
             onError: (error) => {
-              console.error(`重新订阅主题${topic}失败:`, error);
+              console.log(`重新订阅主题${topic}失败:`, error);
             },
           });
         }
@@ -264,17 +273,8 @@ class MqttService {
       try {
         const onEvent = (data: any) => {
           try {
-            let payload: Uint8Array;
-            if (typeof data.payload === 'string') {
-              payload = new TextEncoder().encode(data.payload);
-            } else if (data.payload instanceof ArrayBuffer) {
-              payload = new Uint8Array(data.payload);
-            } else if (Array.isArray(data.payload)) {
-              payload = new Uint8Array(data.payload);
-            } else {
-              payload = new Uint8Array(0);
-            }
-
+            // MQTT只传输字符串
+            let payload: string = data.payload;
             callbacks.forEach((callback) => {
               callback(topic, payload);
             });
@@ -326,6 +326,8 @@ class MqttService {
           try {
             // @d11/react-native-mqtt似乎没有提供取消订阅的方法，这里可能需要特殊处理
             // 目前先从本地记录中删除
+            this.disconnect();
+            this.connect();
             console.log(`已取消订阅主题: ${topic}`);
           } catch (error) {
             console.error(`取消订阅主题${topic}失败:`, error);
@@ -336,12 +338,13 @@ class MqttService {
       // 完全取消订阅
       this.subscriptions.delete(topic);
       this.messageCallbacks.delete(topic);
-
       // 如果已连接，通知服务器取消订阅
       if (this.client && this.isConnected) {
         try {
           // @d11/react-native-mqtt似乎没有提供取消订阅的方法，这里可能需要特殊处理
           // 目前先从本地记录中删除
+          this.disconnect();
+          this.connect();
           console.log(`已取消订阅主题: ${topic}`);
         } catch (error) {
           console.error(`取消订阅主题${topic}失败:`, error);
@@ -432,8 +435,24 @@ class MqttService {
     const topic = this.getDataTopic(deviceUuid);
     this.subscribe(topic, (_, payload) => {
       try {
-        const dataPayload = DataPayload.decode(payload);
-        callback(dataPayload);
+        console.log(`收到原始消息: 类型=${typeof payload}, 长度=${payload.length}`);
+      
+        // 尝试将字符串解码为Base64
+        try {
+          const binaryData = base64ToUint8Array(payload);
+          console.log(`Base64解码后长度: ${binaryData.length}`);
+          
+          // 使用@bufbuild/protobuf的fromBinary解析
+          const dataPayload = fromBinary(DataPayloadSchema, binaryData);
+          console.log(JSON.stringify(dataPayload), 'payloadpayloadpayload');
+          callback(dataPayload);
+        } catch (base64Error) {
+          console.error(`Base64解码失败: ${base64Error}`);
+          
+          // 如果不是有效的Base64编码，尝试直接解析
+          const dataPayload = fromBinary(DataPayloadSchema, new TextEncoder().encode(payload));
+          callback(dataPayload);
+        }
       } catch (error) {
         console.error(`解析设备数据失败: ${error}`);
       }
@@ -447,8 +466,18 @@ class MqttService {
     const topic = this.getConfigUpTopic(deviceUuid);
     this.subscribe(topic, (_, payload) => {
       try {
-        const configPayload = ConfigPayload.decode(payload);
-        callback(configPayload);
+        // 尝试将字符串解码为Base64
+        try {
+          const binaryData = base64ToUint8Array(payload);
+          // 使用@bufbuild/protobuf的fromBinary解析
+          const configPayload = fromBinary(ConfigPayloadSchema, binaryData);
+          callback(configPayload);
+        } catch (base64Error) {
+          console.error(`Base64解码失败: ${base64Error}`);
+          // 如果不是有效的Base64编码，尝试直接解析
+          const configPayload = fromBinary(ConfigPayloadSchema, new TextEncoder().encode(payload));
+          callback(configPayload);
+        }
       } catch (error) {
         console.error(`解析设备配置失败: ${error}`);
       }
@@ -460,8 +489,12 @@ class MqttService {
    */
   sendDeviceConfig(deviceUuid: string, config: ConfigPayload): void {
     const topic = this.getConfigDownTopic(deviceUuid);
-    const payload = ConfigPayload.encode(config).finish();
-    this.publish(topic, payload);
+    // 使用@bufbuild/protobuf的toBinary序列化
+    const binaryData = toBinary(ConfigPayloadSchema, config);
+    // 转换为Base64字符串
+    const base64String = uint8ArrayToBase64(binaryData);
+    // 发布Base64字符串
+    this.publish(topic, base64String);
   }
 
   /**

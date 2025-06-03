@@ -214,7 +214,14 @@ export default function InviteCodesScreen() {
   //     </ThemedView>
   //   );
   // }
-  const searchHandle = (page = 1) => {
+
+  // 处理箭头导航的函数(0-indexed)
+  const handlePageChange = (page = 0) => {
+    getInviteCodes({current: page + 1, pageSize: 20});
+  };
+
+  // 处理输入框跳转的函数(1-indexed)
+  const handlePageInput = (page = 1) => {
     getInviteCodes({current: page, pageSize: 20});
   };
 
@@ -242,11 +249,11 @@ export default function InviteCodesScreen() {
             userRole === 'admin' && codes ? (
               <Pagination
                 page={codes?.current_page - 1}
-                onPageChange={searchHandle}
+                onPageChange={handlePageChange}
                 total={codes?.total_pages}
                 label={`第${codes?.current_page}页，共${codes?.total_pages}页`}
                 numberOfItemsPerPageList={codes?.invite_codes?.length}
-                onSubmitEditing={searchHandle}
+                onSubmitEditing={handlePageInput}
               />
             ) : null
           }

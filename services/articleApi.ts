@@ -1,8 +1,9 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import storage from '@/utils/storage';
+import { ApiErrorType, ApiError } from './api';
 
 // API基本URL
-const API_BASE_URL = 'http://192.168.5.21:8000';
+const API_BASE_URL = 'https://v4.purcloud.ltd:8899/api';
 
 // 创建axios实例
 const api = axios.create({
@@ -18,7 +19,7 @@ const api = axios.create({
 export interface ArticleListItem {
     article_id: number;
     author_uuid: string;
-    author_name: string;
+    author_name: string; // 新增作者名称字段
     title: string;
     created_at: string; // ISO格式的时间戳
 }
@@ -54,16 +55,21 @@ class ArticleApiService {
             // 发送请求
             const response = await api(config);
             return response.data;
-        } catch (error) {
+        } catch (error: any) {
             console.error('API请求失败:', error);
-            throw error;
+            
+            if (error.response && error.response.data && error.response.data.error) {
+                throw { error: error.response.data.error, status: error.response.status };
+            }
+            
+            throw { error: ApiErrorType.INTERNAL_SERVER_ERROR, status: 500 };
         }
     }
 
     /**
      * 获取文章列表
      * @param page 页码
-     * @param pageSize 每页大小
+     * @param pageSize 每页条数
      */
     async getArticles(page: number = 1, pageSize: number = 10): Promise<ArticlesResponse> {
         return this.request({
@@ -103,7 +109,7 @@ class ArticleApiService {
      * @param title 文章标题
      * @param content 文章内容
      */
-    async updateArticle(articleId: number, title: string, content: string): Promise<ArticleDetail & { message: string }> {
+    async updateArticle(articleId: number, title: string, content: string): Promise<{ article_id: number, message: string }> {
         return this.request({
             url: `/admin/articles/${articleId}`,
             method: 'PUT',
@@ -115,7 +121,7 @@ class ArticleApiService {
      * 管理员删除文章
      * @param articleId 文章ID
      */
-    async deleteArticle(articleId: number): Promise<{ article_id: number, message: string }> {
+    async deleteArticle(articleId: number): Promise<{ message: string }> {
         return this.request({
             url: `/admin/articles/${articleId}`,
             method: 'DELETE'

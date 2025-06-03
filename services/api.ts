@@ -5,7 +5,37 @@ import storage from '@/utils/storage';
 
 // API基本URL
 const API_BASE_URL = 'https://v4.purcloud.ltd:8899';
-const WS_BASE_URL = 'ws://192.168.5.21:8000';
+
+// API错误类型枚举
+export enum ApiErrorType {
+  NOT_FOUND = 'not_found', // 资源未找到
+  AUTHENTICATION_FAILED = 'authentication_failed', // 认证失败
+  INVALID_TOKEN = 'invalid_token', // 无效的JWT令牌
+  TOKEN_EXPIRED = 'token_expired', // JWT令牌已过期
+  FORBIDDEN = 'forbidden', // 权限不足
+  VALIDATION_ERROR = 'validation_error', // 输入验证失败
+  CAPTCHA_ERROR = 'captcha_error', // 验证码错误
+  INVALID_JSON = 'invalid_json', // JSON格式无效
+  INVALID_FORM = 'invalid_form', // 表单无效
+  INVALID_PATH = 'invalid_path', // 路径参数无效
+  INVALID_QUERY = 'invalid_query', // 查询参数无效
+  INVALID_REQUEST = 'invalid_request', // 请求无效
+  DATABASE_ERROR = 'database_error', // 数据库错误
+  USERNAME_EXISTS = 'username_exists', // 用户名已存在
+  INVALID_USER_TYPE = 'invalid_user_type', // 用户类型无效
+  UNIQUE_VIOLATION = 'unique_violation', // 唯一约束冲突
+  DEVICE_UNREGISTER_FAILED = 'device_unregister_failed', // 设备注销失败
+  REDIS_TIMEOUT = 'redis_timeout', // Redis超时
+  REDIS_CONNECTION_ERROR = 'redis_connection_error', // Redis连接错误
+  REDIS_IO_ERROR = 'redis_io_error', // Redis IO错误
+  REDIS_ERROR = 'redis_error', // Redis通用错误
+  INTERNAL_SERVER_ERROR = 'internal_server_error', // 服务器内部错误
+}
+
+// API错误接口
+export interface ApiError {
+  error: ApiErrorType;
+}
 
 // 创建axios实例
 export const api = axios.create({
@@ -207,240 +237,6 @@ export const verifyPassword = async (username: string, password: string, storedH
   }
 };
 
-// WebSocket管理类
-export class SensorWebSocketManager {
-  private ws: WebSocket | null = null;
-  private token: string | null = null;
-  private status: WebSocketStatus = 'disconnected';
-  private pingInterval: NodeJS.Timeout | null = null;
-  //private reconnectAttempts = 0;
-  //private maxReconnectAttempts = 5;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private onMessageCallback: ((data: SensorData) => void) | null = null;
-  private onStatusChangeCallback: ((status: WebSocketStatus) => void) | null = null;
-  private autoReconnect: boolean = true; // 是否允许自动重连
-  private isActive: boolean = false; // 标记WebSocket是否处于活跃状态
-
-  constructor() {
-    this.setupEventHandlers = this.setupEventHandlers.bind(this);
-  }
-
-  // 设置状态变更回调
-  public setOnStatusChange(callback: (status: WebSocketStatus) => void): void {
-    this.onStatusChangeCallback = callback;
-  }
-
-  // 设置消息回调
-  public setOnMessage(callback: (data: SensorData) => void): void {
-    this.onMessageCallback = callback;
-  }
-
-  // 更新状态并触发回调
-  private updateStatus(newStatus: WebSocketStatus): void {
-    this.status = newStatus;
-
-    // 只有在WebSocket活跃时才触发回调
-    if (this.isActive && this.onStatusChangeCallback) {
-      this.onStatusChangeCallback(newStatus);
-    }
-  }
-
-  // 设置认证令牌
-  public setToken(token: string | null): void {
-    this.token = token;
-  }
-
-  // 设置是否允许自动重连
-  public setAutoReconnect(enable: boolean): void {
-    this.autoReconnect = enable;
-    console.log(`WebSocket自动重连已${enable ? '启用' : '禁用'}`);
-  }
-
-  // 连接WebSocket
-  public connect(): void {
-    // 标记WebSocket为活跃状态
-    this.isActive = true;
-
-    // 启用自动重连
-    this.autoReconnect = true;
-
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    try {
-      this.updateStatus('connecting');
-      if (!this.token) {
-        throw new Error('连接WebSocket需要认证令牌');
-      }
-
-      // 创建一个使用Sec-WebSocket-Protocol传递token的WebSocket连接
-      // 这样后端可以从WebSocket协议头中获取token进行认证
-      const wsUrl = `${WS_BASE_URL}/api/ws/devices`;
-
-      // 使用自定义WebSocket协议，将token作为协议名传递
-      // 注意：此处需要传递一个协议数组，第一个元素是token
-      this.ws = new WebSocket(wsUrl, [`Bearer.${this.token}`]);
-
-      this.setupEventHandlers();
-    } catch (error) {
-      console.error('WebSocket连接失败:', error);
-      this.updateStatus('error');
-      if (this.autoReconnect && this.isActive) {
-        this.attemptReconnect();
-      }
-    }
-  }
-
-  // 设置WebSocket事件处理
-  private setupEventHandlers(): void {
-    if (!this.ws) return;
-
-    this.ws.onopen = () => {
-      if (!this.isActive) {
-        console.log('WebSocket已打开，但已标记为非活跃，即将关闭');
-        this.disconnect();
-        return;
-      }
-
-      console.log('WebSocket连接已建立');
-      this.updateStatus('connected');
-      //this.reconnectAttempts = 0;
-      this.startPingInterval();
-    };
-
-    this.ws.onmessage = (event) => {
-      // 如果WebSocket已经不活跃，不处理任何消息
-      if (!this.isActive) {
-        console.log('WebSocket已标记为非活跃，忽略收到的消息');
-        return;
-      }
-
-      try {
-        const data = JSON.parse(event.data) as SensorData;
-        if (this.onMessageCallback) {
-          this.onMessageCallback(data);
-        }
-      } catch (error) {
-        console.error('解析WebSocket消息失败:', error);
-      }
-    };
-
-    this.ws.onclose = () => {
-      console.log('WebSocket连接已关闭');
-      this.updateStatus('disconnected');
-      this.stopPingInterval();
-
-      // 只有在活跃且允许自动重连的情况下才尝试重连
-      //if (this.autoReconnect && this.isActive) {
-      if (this.autoReconnect && this.isActive) {
-        this.attemptReconnect();
-      } else {
-        console.log('WebSocket不会自动重连: 自动重连=' + this.autoReconnect + ', 活跃状态=' + this.isActive);
-      }
-    };
-
-    // this.ws.onerror = (error) => {
-    //     console.error('WebSocket错误:', error);
-    //     this.updateStatus('error');
-    // };
-  }
-
-  // 发送ping消息保持连接
-  private startPingInterval(): void {
-    this.stopPingInterval();
-    this.pingInterval = setInterval(() => {
-      // 只在WebSocket活跃时发送ping
-      if (this.isActive) {
-        this.sendPing();
-      } else {
-        this.stopPingInterval();
-      }
-    }, 30000); // 每30秒发送一次ping
-  }
-
-  // 停止ping间隔
-  private stopPingInterval(): void {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-    }
-  }
-
-  // 发送ping消息
-  private sendPing(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.isActive) {
-      this.ws.send('ping');
-    }
-  }
-
-  // 尝试重新连接
-  private attemptReconnect(): void {
-    // 如果WebSocket不活跃或不允许自动重连，直接返回
-    if (!this.isActive || !this.autoReconnect) {
-      console.log('不会尝试重连: 自动重连=' + this.autoReconnect + ', 活跃状态=' + this.isActive);
-      return;
-    }
-
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    // if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-    //     console.log('达到最大重连次数，停止重连');
-    //     this.updateStatus('error');
-    //     return;
-    // }
-
-    //this.reconnectAttempts++;
-    this.updateStatus('reconnecting');
-
-    // 使用指数退避策略
-    //const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    //console.log(`将在${delay}ms后尝试重新连接 (尝试 ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-
-    this.reconnectTimeout = setTimeout(() => {
-      // 重连前再次检查活跃状态和自动重连设置
-      if (this.isActive && this.autoReconnect) {
-        this.connect();
-      } else {
-        console.log('重连已取消: 自动重连=' + this.autoReconnect + ', 活跃状态=' + this.isActive);
-      }
-    }, 10);
-  }
-
-  // 关闭连接
-  public disconnect(): void {
-    console.log('断开WebSocket连接');
-
-    // 标记为非活跃状态
-    this.isActive = false; // <-- 新增此行
-    // 停止定时器
-    this.stopPingInterval();
-
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    // 断开连接
-    if (this.ws) {
-      try {
-        this.ws.close();
-      } catch (e) {
-        console.error('关闭WebSocket时发生错误:', e);
-      }
-      this.ws = null;
-    }
-
-    this.status = 'disconnected';
-  }
-
-  // 获取当前连接状态
-  public getStatus(): WebSocketStatus {
-    return this.status;
-  }
-}
 
 // 创建API客户端类，集中处理认证逻辑
 class ApiClient {
@@ -793,8 +589,4 @@ class ApiClient {
 
 // 创建单例实例
 export const apiService = new ApiClient();
-
-// 创建WebSocket管理器实例
-export const sensorWebSocketManager = new SensorWebSocketManager();
-
 export default apiService;

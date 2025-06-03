@@ -111,8 +111,11 @@ export default function UserAdminScreen() {
 
   // 编辑用户
   const handleEditUser = async () => {
-    if (editPassword && editCheckPassword === editPassword) {
-      const password_hash = await hashPassword(curUser!.username, editPassword);
+    if (editPassword && editCheckPassword === editPassword || editPassword === '') {
+      let password_hash: string | undefined = undefined;
+      if (editPassword !== '') {
+        password_hash = await hashPassword(curUser!.username, editPassword);
+      }
       try {
         await apiService.updateUser(curUser!.user_uuid, {
           username: curUser!.username,
@@ -132,7 +135,7 @@ export default function UserAdminScreen() {
         Alert.alert('错误', err.response?.data?.message || '更新用户失败');
       }
     } else {
-      Alert.alert('错误', '密码为空或者两次输入密码不一致');
+      Alert.alert('错误', '两次输入密码不一致');
     }
   };
 

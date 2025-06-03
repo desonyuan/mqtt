@@ -1,8 +1,9 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import storage from '@/utils/storage';
+import { ApiErrorType, ApiError } from './api';
 
 // API基本URL
-const API_BASE_URL = 'http://192.168.5.21:8000';
+const API_BASE_URL = 'https://v4.purcloud.ltd:8899/api';
 
 // 创建axios实例
 const api = axios.create({
@@ -19,12 +20,14 @@ export interface SensorDataItem {
     data_uuid: string;
     device_uuid: string;
     timestamp: string; // ISO格式的时间戳
-    raw_data: string; // JSON格式的原始数据
+    raw_data: any; // 解析后的传感器数据
 }
 
 // 分页传感器数据响应接口
 export interface SensorDataResponse {
-    data: SensorDataItem[];
+    device_uuid: string;
+    device_name?: string | null; // 新增设备名称字段
+    raw_data: any[];
     current_page: number;
     total_pages: number;
     total_items: number;
@@ -48,9 +51,14 @@ class SensorDataApiService {
             // 发送请求
             const response = await api(config);
             return response.data;
-        } catch (error) {
+        } catch (error: any) {
             console.error('API请求失败:', error);
-            throw error;
+            
+            if (error.response && error.response.data && error.response.data.error) {
+                throw { error: error.response.data.error, status: error.response.status };
+            }
+            
+            throw { error: ApiErrorType.INTERNAL_SERVER_ERROR, status: 500 };
         }
     }
 
@@ -94,16 +102,20 @@ class SensorDataApiService {
     }
 
     /**
-     * 获取特定设备的传感器数据
+     * 查询设备传感器数据
      * @param deviceUuid 设备UUID
      * @param page 页码
-     * @param pageSize 每页大小
+     * @param pageSize 每页条数
      */
     async getDeviceSensorData(deviceUuid: string, page: number = 1, pageSize: number = 10): Promise<SensorDataResponse> {
         return this.request({
-            url: '/device/sensor-data',
+            url: '/device-sensor-data',
             method: 'GET',
-            params: { device_uuid: deviceUuid, page, page_size: pageSize }
+            params: { 
+                device_uuid: deviceUuid, 
+                page, 
+                page_size: pageSize 
+            }
         });
     }
 }
