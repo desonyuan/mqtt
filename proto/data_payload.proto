@@ -1,0 +1,16 @@
+syntax = "proto3";
+package proto.data_payload;
+
+message Data {
+  string   device_uuid     = 1;
+  float    temperature     = 2;
+  float    humidity        = 3;
+  float    light           = 4;
+  float    soil_moisture   = 5;
+  float    co2             = 6;
+  double   timestamp       = 7;
+}
+
+message DataPayload {
+  repeated Data     datasets        = 1;
+}

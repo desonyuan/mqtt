@@ -1,0 +1,34 @@
+syntax = "proto3";
+package proto.config_payload;
+
+// 阈值数据结构
+message ThresholdConfig {
+  optional float   upper_threshold  = 1;
+  optional float   lower_threshold  = 2;
+  optional bool    upper_enabled    = 3;
+  optional bool    lower_enabled    = 4;
+  optional uint32  data_value_type  = 5;
+}
+
+// 可选的配置更新消息
+message ConfigPayload {
+  optional string     device_uuid         = 1;
+  // 基础字段
+  optional string     wifi_ssid           = 2;
+  optional string     wifi_password       = 3;
+  optional uint32     device_mode         = 4;
+  
+  // 从设备列表
+  repeated string     slave_uuids         = 5;
+
+  // 主设备UUID(仅从设备模式下使用)
+  optional string     master_uuid         = 6;
+  
+  // 传感器阈值
+  map<uint32, ThresholdConfig> thresholds = 7;
+  
+  // 功能开关
+  optional bool       pir_sensor_enabled  = 8;
+  optional float      light_pwm_target    = 9;
+  optional bool       pwm_enabled         = 10;
+}
