@@ -7,10 +7,10 @@ import {api} from '@/services/api';
 import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/deviceApi';
 import mqttService from '@/services/mqtt';
 import {$dayjs} from '@/utils/dayjs';
-import {useBoolean, usePagination, useRequest} from 'ahooks';
+import {useBoolean, useRequest} from 'ahooks';
 import {useLocalSearchParams, useNavigation, useRouter} from 'expo-router';
 import React, {useEffect, useState} from 'react';
-import {FlatList, Pressable, StyleSheet, View} from 'react-native';
+import {FlatList, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Button, Dialog, List, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 
@@ -102,7 +102,7 @@ export default function DeviceScreen() {
           device_uuid: uuid,
           is_online: false, // 默认为离线
           time: new Date().toISOString(),
-          owner_uuid: currentDeviceRelation.device_uuid // 或者使用适当的所有者ID
+          owner_uuid: currentDeviceRelation.device_uuid, // 或者使用适当的所有者ID
         }));
         console.log(slaveDeviceStatuses, 'slaveDeviceStatusesslaveDeviceStatusesslaveDeviceStatuses');
 
@@ -220,7 +220,8 @@ export default function DeviceScreen() {
                       pathname: `/(stack)/device/[id]`,
                       params: {
                         id: device.device_uuid,
-                        time: device.time
+                        time: device.time,
+                        user_uuid: device.owner_uuid,
                       },
                     });
                   }}

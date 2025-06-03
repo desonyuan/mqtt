@@ -106,7 +106,7 @@ export default function DeviceConfigScreen() {
       lastUpdated: new Date().toLocaleString('zh-CN'),
     };
 
-    setDevices((prev) => prev.map((device) => (device.id === updatedDevice.id ? updatedDevice : device)));
+    // setDevices((prev) => prev.map((device) => (device.id === updatedDevice.id ? updatedDevice : device)));
 
     // 这里应该调用API保存配置
     Alert.alert('成功', '设备配置已保存');
@@ -233,18 +233,13 @@ export default function DeviceConfigScreen() {
                   descriptionNumberOfLines={2}
                   right={() => (
                     <View style={styles.itemRightContent}>
-                      {/* <View style={styles.thresholdContainer}>
-                        <ThemedText style={styles.thresholdText}>水: {device.soilMoistureThreshold}%</ThemedText>
-                        <ThemedText style={styles.thresholdText}>
-                          光: {Math.floor(device.lightThreshold / 1000)}k
-                        </ThemedText>
-                        <ThemedText style={styles.thresholdText}>CO2: {device.co2Threshold}</ThemedText>
-                      </View> */}
                       <Button
                         disabled={!device.is_online}
                         mode="contained-tonal"
                         // compact
-                        onPress={() => handleSelectDevice(device)}
+                        onPress={() => {
+                          handleSelectDevice(device);
+                        }}
                         style={styles.editButton}
                         labelStyle={styles.editButtonLabel}
                       >
@@ -252,7 +247,6 @@ export default function DeviceConfigScreen() {
                       </Button>
                     </View>
                   )}
-                  onPress={() => handleSelectDevice(device)}
                   style={styles.listItem}
                 />
               );
@@ -317,7 +311,7 @@ export default function DeviceConfigScreen() {
                   {backgroundColor: device.isActive ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)'},
                 ]}
               >
-                {device.isActive ? '已启用' : '已禁用'}
+                {device.is_online ? '已启用' : '已禁用'}
               </Chip>
             </View>
           );

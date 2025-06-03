@@ -1,12 +1,13 @@
 import {StyleSheet, View} from 'react-native';
 import React, {FC, PropsWithChildren, ReactNode} from 'react';
 import {useThemeColor} from '@/hooks/useThemeColor';
-import {Card} from 'react-native-paper';
+import {ActivityIndicator, Card} from 'react-native-paper';
 
 type Props = {
   footerComponent?: ReactNode;
   headerComponent?: ReactNode;
   cardTitle?: ReactNode;
+  loading?: boolean;
 };
 
 const CardBox: FC<PropsWithChildren<Props>> = (props) => {
@@ -17,7 +18,15 @@ const CardBox: FC<PropsWithChildren<Props>> = (props) => {
       {props.headerComponent && props.headerComponent}
       <Card style={[styles.flex1, {backgroundColor: cardColor}]}>
         {props.cardTitle && props.cardTitle}
-        <Card.Content style={styles.content}>{props.children}</Card.Content>
+        <Card.Content style={styles.content}>
+          {props.loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator />
+            </View>
+          ) : (
+            props.children
+          )}
+        </Card.Content>
       </Card>
       {props.footerComponent && props.footerComponent}
     </View>
@@ -35,5 +44,10 @@ const styles = StyleSheet.create({
   },
   content: {
     height: '100%',
+  },
+  loadingBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

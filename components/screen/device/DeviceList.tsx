@@ -1,11 +1,10 @@
-import {ThemedView} from '@/components/ThemedView';
 import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import {api} from '@/services/api';
 import {$dayjs} from '@/utils/dayjs';
-import {useRequest} from 'ahooks';
-import React, {FC} from 'react';
-import {ActivityIndicator, FlatList, StyleSheet, View} from 'react-native';
+import {usePagination} from 'ahooks';
+import React, {FC, useState} from 'react';
+import {FlatList, StyleSheet, View} from 'react-native';
 import {List, Text, useTheme} from 'react-native-paper';
 
 interface MainDevice {
@@ -14,45 +13,66 @@ interface MainDevice {
   owner_uuid: string;
   time?: string;
 }
+const pageSize = 20;
+interface DeviceType {
+  device_name: string;
+  device_type: number;
+  device_uuid: string;
+  is_online: boolean;
+  master_uuid: null;
+  owner_uuid: string;
+  time: null;
+}
 
-type Props = {
-  // list: MainDevice[];
-};
-const DeviceList: FC<Props> = ({}) => {
-  // const [searchQuery, setSearchQuery] = useState('');
+type IProps = {deviceId: string; master_uuid: string};
+
+const DeviceList: FC<IProps> = ({deviceId, master_uuid}) => {
+  const [slaveDevices, setSlaveDevices] = useState<DeviceType[]>([]);
   const theme = useTheme();
   //  获取设备列表
-  const {data, loading} = useRequest(async () => {
-    const res = await api.get('/all_devices');
-    return res.data as MainDevice[];
-  }, {});
+  const {loading, run} = usePagination(
+    async (params) => {
+      const res = await api.get('/device/all_devices', {
+        params: Object.assign({
+          page: params.current,
+          page_size: params.pageSize,
+        }),
+      });
+      const {data} = res;
+      return data;
+    },
+    {
+      defaultParams: [{current: 1, pageSize}],
+      onSuccess(data, params) {
+        setSlaveDevices(
+          (data as any[]).filter((d) => {
+            return d.device_type == 1 && d.master_uuid == master_uuid;
+          })
+        );
+      },
+    }
+  );
 
-  if (loading) {
-    return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{marginTop: 20}}>加载设备数据...</Text>
-      </ThemedView>
-    );
-  }
+  const searchHandle = (page = 1) => {
+    run({current: page, pageSize});
+  };
   return (
     <View style={styles.container}>
-      {/* <Search value={searchQuery} onChangeText={setSearchQuery} placeholder="请输入主设备id" /> */}
       <CardBox
+        loading={loading}
         footerComponent={
           // 分页
           <Pagination
             page={1}
-            onPageChange={() => {}}
+            onPageChange={searchHandle}
             total={1}
             label={`第${1}页，共${1}页`}
-            numberOfItemsPerPageList={2}
-            onSubmitEditing={() => {}}
+            onSubmitEditing={searchHandle}
           />
         }
       >
         <FlatList
-          data={data}
+          data={slaveDevices}
           contentContainerStyle={{
             paddingVertical: 10,
           }}

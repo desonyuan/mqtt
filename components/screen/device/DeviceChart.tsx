@@ -4,11 +4,10 @@ import {LineChart} from 'react-native-gifted-charts';
 
 import {ThemedText} from '@/components/ThemedText';
 import {useThemeColor} from '@/hooks/useThemeColor';
-import {useFocusEffect} from 'expo-router';
+import {type DataPayload} from '@/proto/data_payload_pb';
+import mqttService from '@/services/mqtt';
 import {Chip} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import { type Data, type DataPayload } from '@/proto/data_payload_pb';
-import mqttService from '@/services/mqtt';
 
 const MAX_DATA_POINTS = 20; // 显示最近20个数据点
 const {width} = Dimensions.get('window');
@@ -28,7 +27,7 @@ interface DeviceChartProps {
   time: number;
 }
 
-export default function DeviceChart({ deviceId,time }: DeviceChartProps) {
+export default function DeviceChart({deviceId, time}: DeviceChartProps) {
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
   const [dataStatus, setDataStatus] = useState<'connected' | 'disconnected'>('disconnected');
   const [loading, setLoading] = useState(true);
@@ -51,7 +50,7 @@ export default function DeviceChart({ deviceId,time }: DeviceChartProps) {
     {name: '土壤湿度', unit: '%', color: '#4CAF50', accessor: (d: SensorData) => d.soil_moisture, icon: '🌱'},
     {name: ' CO2', unit: 'ppm', color: '#FF9800', accessor: (d: SensorData) => d.co2, icon: '☁️'},
   ];
-  
+
   // 处理MQTT传感器数据
   const handleSensorData = (payload: DataPayload) => {
     console.log(payload, 'MQTT payload received');
@@ -73,40 +72,27 @@ export default function DeviceChart({ deviceId,time }: DeviceChartProps) {
         device_uuid: deviceData.deviceUuid,
         timestamp: deviceData.timestamp + time,
       };
-      
+
       // 更新传感器数据数组，保留最近的数据
-      setSensorData(prevData => {
+      setSensorData((prevData) => {
         const updatedData = [...prevData, newData];
         return updatedData.slice(-MAX_DATA_POINTS); // 只保留最近的MAX_DATA_POINTS个数据点
       });
-      
+
       setLoading(false);
       setDataStatus('connected');
     }
   };
 
-  // 监听页面焦点变化
-  useFocusEffect(
-    React.useCallback(() => {
-      // 页面获得焦点时订阅MQTT主题
-      console.log('页面获得焦点，订阅MQTT主题');
-      // 订阅设备数据主题
-      mqttService.subscribeDeviceData(deviceId, handleSensorData);
-
-      // 清理函数，页面失去焦点时执行
-      return () => {
-        console.log('页面失去焦点，取消MQTT订阅');
-        mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
-      };
-    }, [deviceId])
-  );
-
   // 组件卸载时清理
   useEffect(() => {
-    return () => {
-      console.log('组件卸载，取消MQTT订阅');
-      mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
-    };
+    if (deviceId) {
+      mqttService.subscribeDeviceData(deviceId, handleSensorData);
+      return () => {
+        console.log('组件卸载，取消MQTT订阅');
+        mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
+      };
+    }
   }, [deviceId]);
 
   // 获取状态的显示样式
@@ -230,9 +216,7 @@ export default function DeviceChart({ deviceId,time }: DeviceChartProps) {
           <ThemedText style={[styles.chartFooterText, {fontFamily: 'Sarasa'}]}>
             实时数据 • {displayData.length} 个数据点
           </ThemedText>
-          <ThemedText style={[styles.chartFooterText, {fontFamily: 'Sarasa'}]}>
-            设备ID: {deviceId || 'N/A'}
-          </ThemedText>
+          <ThemedText style={[styles.chartFooterText, {fontFamily: 'Sarasa'}]}>设备ID: {deviceId || 'N/A'}</ThemedText>
         </View>
       </View>
     );

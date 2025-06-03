@@ -1,9 +1,9 @@
 import {createMqttClient, MqttConfig} from '@d11/react-native-mqtt';
 import {MqttClient} from '@d11/react-native-mqtt/dist/Mqtt/MqttClient';
-import { fromBinary, toBinary } from "@bufbuild/protobuf";
-import { type DataPayload, DataPayloadSchema } from "@/proto/data_payload_pb";
-import { type ConfigPayload, ConfigPayloadSchema } from "@/proto/config_payload_pb";
-import { Buffer } from 'buffer';
+import {fromBinary, toBinary} from '@bufbuild/protobuf';
+import {type DataPayload, DataPayloadSchema} from '@/proto/data_payload_pb';
+import {type ConfigPayload, ConfigPayloadSchema} from '@/proto/config_payload_pb';
+import {Buffer} from 'buffer';
 import storage from '@/utils/storage';
 
 // MQTT服务器配置
@@ -67,7 +67,9 @@ class MqttService {
   private isConnected: boolean = false;
   private reconnectTimerId: NodeJS.Timeout | null = null;
   private subscriptions: Map<string, OnMessageCallback[]> = new Map();
-
+  constructor() {
+    this.connect();
+  }
   /**
    * 初始化MQTT连接
    */
@@ -432,31 +434,38 @@ class MqttService {
    * 订阅设备数据
    */
   subscribeDeviceData(deviceUuid: string, callback: (data: DataPayload) => void): void {
-    const topic = this.getDataTopic(deviceUuid);
-    this.subscribe(topic, (_, payload) => {
-      try {
-        console.log(`收到原始消息: 类型=${typeof payload}, 长度=${payload.length}`);
-      
-        // 尝试将字符串解码为Base64
+    const handler = () => {
+      const topic = this.getDataTopic(deviceUuid);
+      this.subscribe(topic, (_, payload) => {
         try {
-          const binaryData = base64ToUint8Array(payload);
-          console.log(`Base64解码后长度: ${binaryData.length}`);
-          
-          // 使用@bufbuild/protobuf的fromBinary解析
-          const dataPayload = fromBinary(DataPayloadSchema, binaryData);
-          console.log(JSON.stringify(dataPayload), 'payloadpayloadpayload');
-          callback(dataPayload);
-        } catch (base64Error) {
-          console.error(`Base64解码失败: ${base64Error}`);
-          
-          // 如果不是有效的Base64编码，尝试直接解析
-          const dataPayload = fromBinary(DataPayloadSchema, new TextEncoder().encode(payload));
-          callback(dataPayload);
+          console.log(`收到原始消息: 类型=${typeof payload}, 长度=${payload.length}`);
+
+          // 尝试将字符串解码为Base64
+          try {
+            const binaryData = base64ToUint8Array(payload);
+            console.log(`Base64解码后长度: ${binaryData.length}`);
+
+            // 使用@bufbuild/protobuf的fromBinary解析
+            const dataPayload = fromBinary(DataPayloadSchema, binaryData);
+            console.log(JSON.stringify(dataPayload), 'payloadpayloadpayload');
+            callback(dataPayload);
+          } catch (base64Error) {
+            console.error(`Base64解码失败: ${base64Error}`);
+
+            // 如果不是有效的Base64编码，尝试直接解析
+            const dataPayload = fromBinary(DataPayloadSchema, new TextEncoder().encode(payload));
+            callback(dataPayload);
+          }
+        } catch (error) {
+          console.error(`解析设备数据失败: ${error}`);
         }
-      } catch (error) {
-        console.error(`解析设备数据失败: ${error}`);
-      }
-    });
+      });
+    };
+    if (!this.client || this.isConnected) {
+      this.connect().then(() => handler());
+    } else {
+      handler();
+    }
   }
 
   /**
