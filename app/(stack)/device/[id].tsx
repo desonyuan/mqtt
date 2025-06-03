@@ -74,6 +74,8 @@ export default function DeviceScreen() {
 
   // 处理MQTT传感器数据
   const handleSensorData = (payload: DataPayload) => {
+    console.log(payload, 'payloadpayloadpayload');
+
     if (!payload.datasets || payload.datasets.length === 0) {
       return;
     }
@@ -87,6 +89,8 @@ export default function DeviceScreen() {
 
   // 订阅MQTT主题
   const subscribeMqtt = () => {
+    console.log(deviceId, 'deviceIddeviceIddeviceIddeviceIddeviceId');
+
     // 订阅设备数据主题
     mqttService.subscribeDeviceData(deviceId, handleSensorData);
   };
@@ -122,7 +126,9 @@ export default function DeviceScreen() {
       }
     };
 
-    initializeData();
+    if (deviceId) {
+      initializeData();
+    }
 
     // 组件卸载时取消MQTT订阅
     return () => {

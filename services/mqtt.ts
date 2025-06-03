@@ -29,11 +29,11 @@ enum MQTT_EVENTS {
 }
 
 // 设备数据主题格式
-const DATA_TOPIC_FORMAT = '/data/{device_uuid}';
+const DATA_TOPIC_FORMAT = 'data/{device_uuid}';
 // 设备配置下发主题格式
-const CONFIG_DOWN_TOPIC_FORMAT = '/config/{device_uuid}/down';
+const CONFIG_DOWN_TOPIC_FORMAT = 'config/{device_uuid}/down';
 // 设备配置上传主题格式
-const CONFIG_UP_TOPIC_FORMAT = '/config/{device_uuid}/up';
+const CONFIG_UP_TOPIC_FORMAT = 'config/{device_uuid}/up';
 
 // 回调函数类型
 export type OnMessageCallback = (topic: string, payload: Uint8Array) => void;

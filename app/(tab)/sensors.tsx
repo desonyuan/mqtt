@@ -8,11 +8,12 @@ import {api} from '@/services/api';
 import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/deviceApi';
 import mqttService from '@/services/mqtt';
 import {$dayjs} from '@/utils/dayjs';
-import {useRequest} from 'ahooks';
-import {useLocalSearchParams, useRouter} from 'expo-router';
+import {useBoolean, usePagination, useRequest} from 'ahooks';
+import {useLocalSearchParams, useNavigation, useRouter} from 'expo-router';
 import React, {useEffect, useState} from 'react';
-import {FlatList, StyleSheet, View} from 'react-native';
-import {ActivityIndicator, Button, List, Text, useTheme} from 'react-native-paper';
+import {FlatList, Pressable, StyleSheet, View} from 'react-native';
+import {ActivityIndicator, Button, Dialog, List, Portal, Text, TextInput, useTheme} from 'react-native-paper';
+import Toast from 'react-native-toast-message';
 
 enum UserRole {
   ADMIN = 'admin',
@@ -25,27 +26,57 @@ interface MainDevice {
   owner_uuid: string;
   time?: string;
 }
-
+const pageSize = 20;
 type TabItem = 'chart' | 'table' | 'list';
 export default function DeviceScreen() {
   const {id} = useLocalSearchParams();
-  const deviceId = Array.isArray(id) ? id[0] : id;
   const router = useRouter();
   const theme = useTheme();
   const {userRole} = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [masterSensorData, setMasterSensorData] = useState<Data | null>(null);
   const [slaveDevices, setSlaveDevices] = useState<DeviceOnlineStatus[]>([]);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<TabItem>('list');
+  const [dialogVisible, setDialogVisible] = useBoolean();
+  const [iptDeviceId, setIptDeviceId] = useState('');
+  const [iptDeviceName, setIptDeviceName] = useState('');
+  const navigation = useNavigation();
   // const [mainDevices, setMainDevices] = useState<MainDevice[]>([]);
   //  获取设备列表
-  const {data: masterDevices, loading} = useRequest(async () => {
+  const {
+    data: masterDevices,
+    loading,
+    run: getDevices,
+  } = useRequest(async () => {
     const res = await api.get('/device');
     return res.data as MainDevice[];
   }, {});
+
+  const {run: registerDevice} = useRequest(
+    () => {
+      return api.post('/device/register', {
+        device_uuid: iptDeviceId,
+        device_name: iptDeviceName, // string: 设备名称，可选但不能为"null"
+      });
+    },
+    {
+      manual: true,
+      onSuccess() {
+        setDialogVisible.setFalse();
+        getDevices();
+        Toast.show({
+          type: 'success',
+          text1: `注册设备${iptDeviceName ? iptDeviceName : iptDeviceId}成功`,
+          onHide() {
+            setIptDeviceId('');
+            setIptDeviceName('');
+          },
+        });
+      },
+    }
+  );
+
   // 获取设备的从设备列表
   const fetchSlaveDevices = async () => {
     try {
@@ -61,6 +92,7 @@ export default function DeviceScreen() {
         // 普通用户: 获取所属高级用户的所有主从关系
         masterSlaveRelations = await deviceApi.getSeniorMasterSlavesRelation();
       }
+      console.log(masterSlaveRelations, '1111111111');
 
       // 查找当前设备的从设备
       const currentDeviceRelation = masterSlaveRelations.find((relation) => relation.device_uuid === deviceId);
@@ -82,31 +114,11 @@ export default function DeviceScreen() {
     }
   };
 
-  // 处理MQTT传感器数据
-  const handleSensorData = (payload: DataPayload) => {
-    if (!payload.datasets || payload.datasets.length === 0) {
-      return;
-    }
-
-    // 查找当前设备的数据
-    const deviceData = payload.datasets.find((data) => data.deviceUuid === deviceId);
-    if (deviceData) {
-      setMasterSensorData(deviceData);
-    }
-  };
-
-  // 订阅MQTT主题
-  const subscribeMqtt = () => {
-    // 订阅设备数据主题
-    mqttService.subscribeDeviceData(deviceId, handleSensorData);
-  };
-
   // 刷新设备数据
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchSlaveDevices();
     // 重新订阅MQTT主题
-    subscribeMqtt();
     setRefreshing(false);
   };
 
@@ -115,10 +127,12 @@ export default function DeviceScreen() {
     setShowConfigDialog(true);
   };
 
-  // 前往设备配置页面
-  const handleGoToConfig = () => {
-    setShowConfigDialog(false);
-    router.push(`/device-config/${deviceId}`);
+  // 注册设备
+  const startRegister = () => {
+    if (!iptDeviceId) {
+      return Toast.show({text1: '设备id不能为空', type: 'error'});
+    }
+    registerDevice();
   };
 
   // 初始化加载
@@ -134,7 +148,6 @@ export default function DeviceScreen() {
         await fetchSlaveDevices();
 
         // 订阅MQTT主题
-        subscribeMqtt();
       } catch (error) {
         console.error('初始化失败:', error);
         setError('加载数据失败，请检查网络连接');
@@ -142,14 +155,17 @@ export default function DeviceScreen() {
         // setLoading(false);
       }
     };
+  }, []);
 
-    initializeData();
-
-    // 组件卸载时取消MQTT订阅
-    return () => {
-      mqttService.unsubscribe(mqttService.getDataTopic(deviceId));
-    };
-  }, [deviceId]);
+  useEffect(() => {
+    if (userRole === 'senior') {
+      navigation.setOptions({
+        headerRight() {
+          return <Button onPress={setDialogVisible.setTrue}>添加设备</Button>;
+        },
+      });
+    }
+  }, [userRole]);
 
   if (loading) {
     return (
@@ -227,6 +243,32 @@ export default function DeviceScreen() {
           />
         </CardBox>
       </View>
+      {/* 添加设备对话框 */}
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={setDialogVisible.setFalse}>
+          <Dialog.Title>添加设备</Dialog.Title>
+          <Dialog.Content style={{gap: 10}}>
+            <TextInput
+              value={iptDeviceId}
+              onChangeText={setIptDeviceId}
+              mode="outlined"
+              label="请输入设备id"
+            ></TextInput>
+            <TextInput
+              value={iptDeviceName}
+              onChangeText={setIptDeviceName}
+              mode="outlined"
+              label="请输入设备名称(可选)"
+            ></TextInput>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button textColor="rgb(143, 143, 143)" onPress={setDialogVisible.setFalse}>
+              取消
+            </Button>
+            <Button onPress={startRegister}>添加</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

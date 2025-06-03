@@ -41,7 +41,6 @@ const pageSize = 20;
 export default function DevicePermissionsScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const cardColor = useThemeColor({}, 'background');
   const [iptDeviceId, setIptDeviceId] = useState('');
   const popRef = useRef<BottomSheetModal>(null);
   // 弹窗状态
