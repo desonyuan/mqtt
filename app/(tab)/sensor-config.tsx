@@ -8,9 +8,11 @@ import React, {useMemo, useRef, useState} from 'react';
 import {Alert, FlatList, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Button, Card, Chip, Divider, List, ProgressBar, Switch, TextInput} from 'react-native-paper';
 import {mock, Random} from 'mockjs';
-import {useBoolean} from 'ahooks';
+import {useBoolean, usePagination} from 'ahooks';
 import CardBox from '@/components/ui/custom/CardBox';
 import {BottomSheetFooter, BottomSheetScrollView} from '@gorhom/bottom-sheet';
+import {api} from '@/services/api';
+import dayjs from 'dayjs';
 
 // 嵌入式设备配置接口
 interface DeviceConfig {
@@ -23,6 +25,16 @@ interface DeviceConfig {
   co2Threshold: number; // CO2报警阈值（ppm）
   fireAlarmEnabled: boolean; // 是否启用火灾报警
   lastUpdated: string; // 上次更新时间
+}
+
+interface DeviceType {
+  device_name: string;
+  device_type: number;
+  device_uuid: string;
+  is_online: boolean;
+  master_uuid: null;
+  owner_uuid: string;
+  time: null | string;
 }
 
 const data = mock({
@@ -43,16 +55,42 @@ const data = mock({
   ],
 });
 
+const pageSize = 20;
+
 export default function DeviceConfigScreen() {
-  const [devices, setDevices] = useState<DeviceConfig[]>(data.list);
+  // const [devices, setDevices] = useState<DeviceConfig[]>(data.list);
   const [loading, setLoading] = useBoolean();
-  const [selectedDevice, setSelectedDevice] = useState<DeviceConfig | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceType | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const popRef = useRef<BottomSheetModal>(null);
 
+  const {
+    data: devices,
+    pagination,
+    run,
+    loading: getUserLoading,
+  } = usePagination(
+    async (params, keyword = '') => {
+      const search_query = keyword.trim();
+      const res = await api.get('/device/all_devices', {
+        params: Object.assign(
+          {
+            page: params.current,
+            page_size: params.pageSize,
+          },
+          search_query ? {search_query} : undefined
+        ),
+      });
+      return res.data;
+    },
+    {
+      defaultParams: [{current: 1, pageSize}, searchQuery],
+    }
+  );
+
   // 选择设备进行编辑
-  const handleSelectDevice = (device: DeviceConfig) => {
+  const handleSelectDevice = (device: DeviceType) => {
     setSelectedDevice(device);
     setEditMode(true);
     popRef.current?.present();
@@ -184,25 +222,26 @@ export default function DeviceConfigScreen() {
         <CardBox>
           <FlatList
             showsVerticalScrollIndicator={false}
-            data={devices}
+            data={devices as DeviceType[]}
             renderItem={({item: device, index}) => {
               return (
                 <List.Item
-                  title={device.name}
-                  description={`UUID: ${device.uuid}\n上次更新: ${device.lastUpdated}`}
+                  title={device.device_name}
+                  description={`UUID: ${device.device_uuid}\n上次更新: ${device.time ? dayjs(device.time).format('YYYY/MM/DD') : ''}`}
                   titleStyle={styles.listItemTitle}
                   descriptionStyle={styles.listItemDescription}
                   descriptionNumberOfLines={2}
                   right={() => (
                     <View style={styles.itemRightContent}>
-                      <View style={styles.thresholdContainer}>
+                      {/* <View style={styles.thresholdContainer}>
                         <ThemedText style={styles.thresholdText}>水: {device.soilMoistureThreshold}%</ThemedText>
                         <ThemedText style={styles.thresholdText}>
                           光: {Math.floor(device.lightThreshold / 1000)}k
                         </ThemedText>
                         <ThemedText style={styles.thresholdText}>CO2: {device.co2Threshold}</ThemedText>
-                      </View>
+                      </View> */}
                       <Button
+                        disabled={!device.is_online}
                         mode="contained-tonal"
                         // compact
                         onPress={() => handleSelectDevice(device)}
@@ -261,12 +300,12 @@ export default function DeviceConfigScreen() {
           return (
             <View style={styles.deviceHeader}>
               <View>
-                <ThemedText style={styles.deviceName}>{device.name}</ThemedText>
-                <ThemedText style={styles.deviceUuid}>{device.uuid}</ThemedText>
+                <ThemedText style={styles.deviceName}>{device.device_name}</ThemedText>
+                <ThemedText style={styles.deviceUuid}>{device.device_uuid}</ThemedText>
               </View>
               <Chip
                 mode="outlined"
-                icon={device.isActive ? 'check-circle' : 'close-circle'}
+                icon={device.is_online ? 'check-circle' : 'close-circle'}
                 onPress={() =>
                   setSelectedDevice({
                     ...device,
