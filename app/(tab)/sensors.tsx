@@ -192,6 +192,7 @@ export default function DeviceScreen() {
       <View style={styles.container}>
         <Search value={searchQuery} onChangeText={setSearchQuery} placeholder="请输入主设备id" />
         <CardBox
+          scrollable={false}
           footerComponent={
             // 分页
             <Pagination

@@ -18,7 +18,6 @@ const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
           search_query: '',
         }),
       });
-      console.log(res, '1111111111');
 
       return res.data;
     },
@@ -44,27 +43,25 @@ const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
           </View>
         }
       >
-        <ScrollView>
-          {data?.data?.map((item: any, index: number) => {
-            return (
-              <List.Item
-                key={item.article_id}
-                onPress={() => {
-                  // router.navigate('/post/list');
-                  router.navigate(`/(stack)/article/view/${item.article_id}`);
-                }}
-                right={(props) => <List.Icon {...props} icon="eye-arrow-right-outline" />}
-                title={
-                  <View>
-                    <Text style={styles.postTitle}>{item.title}</Text>
-                    <Text>{item.author_name}</Text>
-                  </View>
-                }
-                description={''}
-              />
-            );
-          })}
-        </ScrollView>
+        {data?.data?.map((item: any, index: number) => {
+          return (
+            <List.Item
+              key={item.article_id}
+              onPress={() => {
+                // router.navigate('/post/list');
+                router.navigate(`/(stack)/article/view/${item.article_id}`);
+              }}
+              right={(props) => <List.Icon {...props} icon="eye-arrow-right-outline" />}
+              title={
+                <View>
+                  <Text style={styles.postTitle}>{item.title}</Text>
+                  <Text>{item.author_name}</Text>
+                </View>
+              }
+              description={''}
+            />
+          );
+        })}
       </CardBox>
     </View>
   );

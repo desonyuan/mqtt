@@ -38,6 +38,7 @@ const DeviceTable: FC<IProps> = ({deviceId}) => {
   };
   return (
     <CardBox
+      scrollable
       loading={loading}
       footerComponent={
         <Pagination

@@ -257,6 +257,7 @@ export default function DevicePermissionsScreen() {
         onEndEditing={searchHandle}
       />
       <CardBox
+        scrollable={false}
         footerComponent={
           // 分页
           userList && (

@@ -92,6 +92,7 @@ const List: FC<PropsWithChildren<Props>> = (props) => {
         onEndEditing={searchHandle}
       />
       <CardBox
+        scrollable={false}
         footerComponent={
           // 分页
           articleData && (

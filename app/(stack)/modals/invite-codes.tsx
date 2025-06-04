@@ -229,6 +229,7 @@ export default function InviteCodesScreen() {
     <ThemedView style={[styles.container, {paddingTop: insets.top}]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <CardBox
+          scrollable={false}
           cardTitle={
             <View style={styles.cardTitleBox}>
               <Text style={styles.cardTitle}>{userRole === 'admin' ? '所有邀请码' : '我的邀请码'}</Text>
