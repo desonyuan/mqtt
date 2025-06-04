@@ -1,4 +1,4 @@
-import {StyleSheet, View} from 'react-native';
+import {StyleSheet, View, ViewProps} from 'react-native';
 import React, {FC, PropsWithChildren, ReactNode} from 'react';
 import {useThemeColor} from '@/hooks/useThemeColor';
 import {ActivityIndicator, Card} from 'react-native-paper';
@@ -10,6 +10,7 @@ type Props = {
   cardTitle?: ReactNode;
   loading?: boolean;
   scrollable?: boolean;
+  containerStyle?: ViewProps['style'];
 };
 
 const CardBox: FC<PropsWithChildren<Props>> = ({
@@ -19,11 +20,12 @@ const CardBox: FC<PropsWithChildren<Props>> = ({
   scrollable = false,
   loading,
   footerComponent,
+  containerStyle,
 }) => {
   const cardColor = useThemeColor({}, 'background');
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {headerComponent && headerComponent}
       <Card style={[styles.flex1, {backgroundColor: cardColor}]}>
         {cardTitle && cardTitle}

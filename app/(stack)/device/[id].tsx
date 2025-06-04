@@ -2,8 +2,6 @@ import DeviceChart from '@/components/screen/device/DeviceChart';
 import DeviceList from '@/components/screen/device/DeviceList';
 import DeviceLog from '@/components/screen/device/DeviceLog';
 import DeviceTable from '@/components/screen/device/DeviceTable';
-import {api} from '@/services/api';
-import {usePagination} from 'ahooks';
 import {useLocalSearchParams} from 'expo-router';
 import React, {useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
@@ -33,17 +31,18 @@ export default function DeviceScreen() {
   const deviceId = Array.isArray(id) ? id[0] : id;
   const numericTime = time ? parseInt(Array.isArray(time) ? time[0] : time, 10) : 0;
   const [tab, setTab] = useState<TabItem>('chart');
+  console.log(numericTime, 'numericTimenumericTimenumericTime');
 
   const renderContent = useMemo(() => {
     switch (tab) {
       case 'chart':
         return <DeviceChart deviceId={deviceId} time={numericTime} />;
       case 'table':
-        return <DeviceTable deviceId={deviceId} />;
+        return <DeviceTable time={numericTime} deviceId={deviceId} />;
       case 'log':
-        return <DeviceLog deviceId={deviceId} />;
+        return <DeviceLog time={numericTime} deviceId={deviceId} />;
       default:
-        return <DeviceList deviceId={deviceId} master_uuid={user_uuid as string} />;
+        return <DeviceList time={numericTime} deviceId={deviceId} master_uuid={user_uuid as string} />;
     }
   }, [tab, numericTime, user_uuid]);
 
@@ -70,7 +69,8 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    padding: 10,
+    // padding: 10,
+    paddingVertical: 10,
   },
 
   errorContainer: {

@@ -2,11 +2,12 @@ import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import {api} from '@/services/api';
 import {usePagination} from 'ahooks';
+import dayjs from 'dayjs';
 import {FC} from 'react';
-import {StyleSheet} from 'react-native';
-import {DataTable} from 'react-native-paper';
+import {StyleSheet, View} from 'react-native';
+import {DataTable, Text} from 'react-native-paper';
 
-type IProps = {deviceId: string};
+type IProps = {deviceId: string; time: number};
 const pageSize = 20;
 interface RowData {
   co2: number;
@@ -17,7 +18,7 @@ interface RowData {
   temperature: number;
   timestamp: number;
 }
-const DeviceTable: FC<IProps> = ({deviceId}) => {
+const DeviceTable: FC<IProps> = ({deviceId, time}) => {
   const {data, run, loading} = usePagination(
     async (params) => {
       const res = await api.get('/device-sensor-data', {
@@ -38,6 +39,7 @@ const DeviceTable: FC<IProps> = ({deviceId}) => {
   };
   return (
     <CardBox
+      containerStyle={{paddingHorizontal: 10}}
       scrollable
       loading={loading}
       footerComponent={
@@ -58,19 +60,43 @@ const DeviceTable: FC<IProps> = ({deviceId}) => {
           <DataTable.Title>☀️ 光照</DataTable.Title>
           <DataTable.Title>🌱 土壤温度</DataTable.Title>
           <DataTable.Title>☁️ CO2</DataTable.Title>
-          <DataTable.Title>⏱️ 时间</DataTable.Title>
+          <DataTable.Title numeric>⏱️ 时间</DataTable.Title>
         </DataTable.Header>
 
-        {data?.raw_data.map((item: RowData, index: number) => (
-          <DataTable.Row key={index}>
-            <DataTable.Cell>{item.temperature.toFixed(1)}</DataTable.Cell>
-            <DataTable.Cell>{item.humidity.toFixed(1)}</DataTable.Cell>
-            <DataTable.Cell>{item.light.toFixed(1)}</DataTable.Cell>
-            <DataTable.Cell>{item.soil_moisture.toFixed(1)}</DataTable.Cell>
-            <DataTable.Cell>{item.co2.toFixed(1)}</DataTable.Cell>
-            <DataTable.Cell>{item.timestamp}</DataTable.Cell>
-          </DataTable.Row>
-        ))}
+        {data?.raw_data.map((item: RowData, index: number) => {
+          console.log(item, '111111111111');
+
+          const temperature = Number(item.temperature.toFixed(1));
+          const humidity = Number(item.humidity.toFixed(1));
+          const light = Number(item.light.toFixed(1));
+          const soil_moisture = Number(item.soil_moisture.toFixed(1));
+          const co2 = Number(item.co2.toFixed(1));
+          const date = item.timestamp ? dayjs(parseInt((item.timestamp + time) * 1000 + '')) : null;
+
+          return (
+            <DataTable.Row key={index}>
+              <DataTable.Cell>{temperature <= -999 ? 'null' : temperature}</DataTable.Cell>
+              <DataTable.Cell>{humidity <= -999 ? 'null' : humidity}</DataTable.Cell>
+              <DataTable.Cell>{light <= -999 ? 'null' : light}</DataTable.Cell>
+              <DataTable.Cell>{soil_moisture <= -999 ? 'null' : soil_moisture}</DataTable.Cell>
+              <DataTable.Cell>{co2 <= -999 ? 'null' : co2}</DataTable.Cell>
+              <DataTable.Cell numeric>
+                <View style={styles.dateContainer}>
+                  {date && (
+                    <>
+                      <Text style={styles.dateOfYear}>
+                        {date.get('year')}/{date.get('month') + 1}/{date.get('date')}
+                      </Text>
+                      <Text style={styles.dateOfMonth}>
+                        {date.get('hour')}:{date.get('second')}:{date.get('minute')}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </DataTable.Cell>
+            </DataTable.Row>
+          );
+        })}
       </DataTable>
     </CardBox>
   );
@@ -81,5 +107,17 @@ export default DeviceTable;
 const styles = StyleSheet.create({
   p0: {
     padding: 0,
+  },
+  dateContainer: {
+    alignItems: 'flex-end',
+  },
+  dateOfYear: {
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  dateOfMonth: {
+    // fontWeight: 'bold',
+    fontSize: 11,
+    color: '#333',
   },
 });

@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {ActivityIndicator, Dimensions, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {LineChart} from 'react-native-gifted-charts';
 
 import {ThemedText} from '@/components/ThemedText';
@@ -8,6 +8,7 @@ import {type DataPayload} from '@/proto/data_payload_pb';
 import mqttService from '@/services/mqtt';
 import {Chip} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {ScrollView} from 'react-native-gesture-handler';
 
 const MAX_DATA_POINTS = 20; // 显示最近20个数据点
 const {width} = Dimensions.get('window');
@@ -234,7 +235,7 @@ export default function DeviceChart({deviceId, time}: DeviceChartProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, {backgroundColor, paddingTop: insets.top}]}>
+    <ScrollView contentContainerStyle={{backgroundColor, paddingHorizontal: 10}}>
       <View style={styles.headerContainer}>
         <ThemedText style={[styles.header, {fontFamily: 'Sarasa'}]}>传感器数据</ThemedText>
         <Chip

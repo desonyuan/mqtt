@@ -2,7 +2,7 @@ import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import {api} from '@/services/api';
 import {$dayjs} from '@/utils/dayjs';
-import {usePagination} from 'ahooks';
+import {usePagination, useRequest} from 'ahooks';
 import React, {FC, useState} from 'react';
 import {FlatList, StyleSheet, View} from 'react-native';
 import {List, Text, useTheme} from 'react-native-paper';
@@ -24,34 +24,24 @@ interface DeviceType {
   time: null;
 }
 
-type IProps = {deviceId: string; master_uuid: string};
+type IProps = {deviceId: string; master_uuid: string; time: number};
 
 const DeviceList: FC<IProps> = ({deviceId, master_uuid}) => {
   const [slaveDevices, setSlaveDevices] = useState<DeviceType[]>([]);
   const theme = useTheme();
   //  获取设备列表
-  const {loading, run} = usePagination(
-    async (params) => {
-      const res = await api.get('/device/all_devices', {
-        params: Object.assign({
-          page: params.current,
-          page_size: params.pageSize,
-        }),
-      });
-      const {data} = res;
-      return data;
-    },
-    {
-      defaultParams: [{current: 1, pageSize}],
-      onSuccess(data, params) {
-        setSlaveDevices(
-          (data as any[]).filter((d) => {
-            return d.device_type == 1 && d.master_uuid == master_uuid;
-          })
-        );
-      },
-    }
-  );
+  const {loading, run, data} = useRequest(async (params) => {
+    const res = await api.get('/device/slaves', {
+      params: Object.assign({
+        // page: params.current,
+        // page_size: params.pageSize,
+        master_device_uuid: deviceId,
+      }),
+    });
+    const {data} = res;
+    return data;
+  });
+  console.log(data, '1111111111111111111');
 
   const searchHandle = (page = 1) => {
     run({current: page, pageSize});
@@ -59,20 +49,21 @@ const DeviceList: FC<IProps> = ({deviceId, master_uuid}) => {
   return (
     <View style={styles.container}>
       <CardBox
+        containerStyle={{paddingHorizontal: 10}}
         loading={loading}
-        footerComponent={
-          // 分页
-          <Pagination
-            page={1}
-            onPageChange={searchHandle}
-            total={1}
-            label={`第${1}页，共${1}页`}
-            onSubmitEditing={searchHandle}
-          />
-        }
+        // footerComponent={
+        //   // 分页
+        //   <Pagination
+        //     page={1}
+        //     onPageChange={searchHandle}
+        //     total={1}
+        //     label={`第${1}页，共${1}页`}
+        //     onSubmitEditing={searchHandle}
+        //   />
+        // }
       >
         <FlatList
-          data={slaveDevices}
+          data={data ?? []}
           contentContainerStyle={{
             paddingVertical: 10,
           }}
