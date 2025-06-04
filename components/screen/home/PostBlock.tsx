@@ -1,54 +1,71 @@
+import CardBox from '@/components/ui/custom/CardBox';
+import {api} from '@/services/api';
+import {usePagination} from 'ahooks';
 import {router} from 'expo-router';
-import {mock} from 'mockjs';
 import React, {FC, PropsWithChildren} from 'react';
-import {Pressable, StyleSheet, View} from 'react-native';
-import {List, Text} from 'react-native-paper';
-// 生成随机文章
-const data = mock({
-  'posts|10': [
-    // 生成10个 post 项
-    {
-      'id|+1': 1,
-      title: '@ctitle(5, 15)', // 中文标题，5到15个字
-      content: '@cparagraph(2, 5)', // 中文段落，2到5段
-      author: '@cname', // 随机中文名字
-      createdAt: '@datetime', // 日期时间
-      'views|100-10000': 1, // 阅读量
-      'likes|0-500': 1, // 点赞数
-      'tags|1-3': ['@ctitle(2,3)'], // 标签
-    },
-  ],
-});
+import {ScrollView, StyleSheet, View} from 'react-native';
+import {Button, List, Text} from 'react-native-paper';
 
 type Props = {};
 
 const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
+  const {data} = usePagination(
+    async (params) => {
+      const res = await api.get('/articles', {
+        params: Object.assign({
+          page: params.current,
+          page_size: params.pageSize,
+          search_query: '',
+        }),
+      });
+      console.log(res, '1111111111');
+
+      return res.data;
+    },
+    {
+      defaultParams: [{current: 1, pageSize: 4}],
+    }
+  );
+  console.log(data, '1`111');
+
   return (
     <View style={styles.container}>
-      <View style={styles.postTitleBox}>
-        <Text style={styles.title}>农业文章</Text>
-        <Pressable
-          onPress={() => {
-            router.navigate('/(stack)/article/list');
-          }}
-        >
-          <Text>更多</Text>
-        </Pressable>
-      </View>
-      {data.posts.map((item: any, index: number) => {
-        return (
-          <List.Item
-            key={item.id}
-            onPress={() => {
-              // router.navigate('/post/list');
-              router.navigate(`/(stack)/device/${index}`);
-            }}
-            right={(props) => <List.Icon {...props} icon="arrow-right" />}
-            title={item.title}
-            description={item.tags.join(',')}
-          />
-        );
-      })}
+      <CardBox
+        headerComponent={
+          <View style={styles.postTitleBox}>
+            <Text style={styles.title}>农业文章</Text>
+            <Button
+              onPress={() => {
+                router.navigate('/(stack)/article/list');
+              }}
+            >
+              更多
+            </Button>
+          </View>
+        }
+      >
+        <ScrollView>
+          {data?.data?.map((item: any, index: number) => {
+            return (
+              <List.Item
+                key={item.article_id}
+                onPress={() => {
+                  // router.navigate('/post/list');
+                  router.navigate(`/(stack)/article/view/${item.article_id}`);
+                }}
+                right={(props) => <List.Icon {...props} icon="eye-arrow-right-outline" />}
+                title={
+                  <View>
+                    <Text style={styles.postTitle}>{item.title}</Text>
+                    <Text>{item.author_name}</Text>
+                  </View>
+                }
+                description={''}
+              />
+            );
+          })}
+        </ScrollView>
+      </CardBox>
     </View>
   );
 };
@@ -63,7 +80,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
+    // width: '100%',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
   title: {
     fontSize: 18,
@@ -73,5 +92,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

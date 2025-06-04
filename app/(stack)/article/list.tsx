@@ -43,7 +43,7 @@ const List: FC<PropsWithChildren<Props>> = (props) => {
             page: params.current,
             page_size: params.pageSize,
           },
-          search_query ? {search_query} : undefined
+          search_query ? search_query : undefined
         ),
       });
       return res.data;
