@@ -15,6 +15,7 @@ import {BottomSheetModalProvider} from '@gorhom/bottom-sheet';
 import Screen from '@/components/screen/Screen';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+import AlarmContext, {useAlarm} from '@/contexts/AlarmContext';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 // 在资源加载完成之前，防止启动画面自动隐藏。
 SplashScreen.preventAutoHideAsync();
@@ -82,7 +83,6 @@ export default function RootLayout() {
     // 只保留Sarasa字体，移除其他不需要的字体
     Sarasa: require('../assets/fonts/SarasaGothicNerd-Bold.ttf'),
   });
-
   // 我们不使用defaultProps方式，因为它在TypeScript中有兼容性问题
   // 而是通过theme配置完成全局字体设置
 
@@ -111,36 +111,41 @@ export default function RootLayout() {
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <BottomSheetModalProvider>
               <AuthProvider>
-                <Stack screenOptions={{headerShown: false, headerTitleAlign: 'left'}}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="(auth)/index" />
-                  <Stack.Screen name="(auth)/register" />
-                  <Stack.Screen name="(stack)/modals/invite-codes" options={{headerShown: true, title: '邀请码管理'}} />
-                  <Stack.Screen
-                    name="(stack)/modals/use-invite-code"
-                    options={{headerShown: true, title: '使用邀请码'}}
-                  />
-                  {/* <Stack.Screen name="(test)" /> */}
-                  <Stack.Screen
-                    name="(stack)/device/[id]"
-                    options={{title: '设备信息', headerShown: true}}
-                  ></Stack.Screen>
-                  <Stack.Screen name="+not-found" />
-                  <Stack.Screen
-                    name="(stack)/article/list"
-                    options={{title: '农业文章', headerShown: true}}
-                  ></Stack.Screen>
-                  <Stack.Screen
-                    name="(stack)/article/view/[id]"
-                    options={{title: '农业文章', headerShown: true}}
-                  ></Stack.Screen>
-                  <Stack.Screen
-                    name="(stack)/article/crate"
-                    options={{title: '发布文章', headerShown: true}}
-                  ></Stack.Screen>
-                  <Screen />
-                </Stack>
-                {/* <Slot /> */}
+                <AlarmContext>
+                  <Stack screenOptions={{headerShown: false, headerTitleAlign: 'left'}}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="(auth)/index" />
+                    <Stack.Screen name="(auth)/register" />
+                    <Stack.Screen
+                      name="(stack)/modals/invite-codes"
+                      options={{headerShown: true, title: '邀请码管理'}}
+                    />
+                    <Stack.Screen
+                      name="(stack)/modals/use-invite-code"
+                      options={{headerShown: true, title: '使用邀请码'}}
+                    />
+                    {/* <Stack.Screen name="(test)" /> */}
+                    <Stack.Screen
+                      name="(stack)/device/[id]"
+                      options={{title: '设备信息', headerShown: true}}
+                    ></Stack.Screen>
+                    <Stack.Screen name="+not-found" />
+                    <Stack.Screen
+                      name="(stack)/article/list"
+                      options={{title: '农业文章', headerShown: true}}
+                    ></Stack.Screen>
+                    <Stack.Screen
+                      name="(stack)/article/view/[id]"
+                      options={{title: '农业文章', headerShown: true}}
+                    ></Stack.Screen>
+                    <Stack.Screen
+                      name="(stack)/article/crate"
+                      options={{title: '发布文章', headerShown: true}}
+                    ></Stack.Screen>
+                    <Screen />
+                  </Stack>
+                  {/* <Slot /> */}
+                </AlarmContext>
               </AuthProvider>
             </BottomSheetModalProvider>
             <StatusBar style="auto" />

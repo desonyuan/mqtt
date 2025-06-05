@@ -5,6 +5,7 @@ import {ThemedView} from '@/components/ThemedView';
 import {router} from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
 import {useAuth} from '@/contexts/AuthContext';
+import {useAlarm} from '@/contexts/AlarmContext';
 
 const {width} = Dimensions.get('window');
 

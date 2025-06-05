@@ -34,7 +34,8 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "./withCustomPackagingOptions.js" // Path to the plugin
+      "expo-audio",
+      "./withCustomPackagingOptions.js"
     ],
     "experiments": {
       "typedRoutes": true
