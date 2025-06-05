@@ -1,5 +1,5 @@
 import {Tabs} from 'expo-router';
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {Platform} from 'react-native';
 
 import {HapticTab} from '@/components/HapticTab';
@@ -9,7 +9,18 @@ import {Colors} from '@/constants/Colors';
 import {useColorScheme} from '@/hooks/useColorScheme';
 import {useAuth} from '@/contexts/AuthContext';
 import {Icon} from 'react-native-paper';
-import {BottomTabNavigationOptions} from '@react-navigation/bottom-tabs';
+import { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
+import { mqttService } from '@/services';
+
+// 自定义 Hook 处理 MQTT 连接
+function useMqttConnection() {
+  useEffect(() => {
+    mqttService.connect();
+    return () => {
+      mqttService.disconnect();
+    };
+  }, []);
+}
 
 type RouterConfig = {
   name: string;
@@ -102,6 +113,7 @@ const getTabScreenVisibility = (role: string) => {
 };
 
 export default function TabLayout() {
+  useMqttConnection(); // 使用自定义 Hook
   const colorScheme = useColorScheme();
   const {userRole} = useAuth();
 

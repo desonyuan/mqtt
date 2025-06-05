@@ -8,8 +8,8 @@ import deviceApi, {DeviceOnlineStatus, MasterSlaveRelation} from '@/services/dev
 import mqttService from '@/services/mqtt';
 import {$dayjs} from '@/utils/dayjs';
 import {useBoolean, useRequest} from 'ahooks';
-import {useLocalSearchParams, useNavigation, useRouter} from 'expo-router';
-import React, {useEffect, useState} from 'react';
+import {useLocalSearchParams, useNavigation, useRouter, useFocusEffect} from 'expo-router';
+import React, {useEffect, useState, useCallback} from 'react';
 import {FlatList, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Button, Dialog, List, Portal, Text, TextInput, useTheme} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
@@ -50,7 +50,21 @@ export default function DeviceScreen() {
   } = useRequest(async () => {
     const res = await api.get('/device');
     return res.data as MainDevice[];
-  }, {});
+  }, {
+    manual: true // 设置为手动触发，由useFocusEffect控制
+  });
+
+  // 每次页面获得焦点时刷新设备列表
+  useFocusEffect(
+    useCallback(() => {
+      getDevices();
+    }, [getDevices])
+  );
+
+  // 确保初次加载也会执行
+  useEffect(() => {
+    getDevices();
+  }, []);
 
   const {run: registerDevice} = useRequest(
     () => {

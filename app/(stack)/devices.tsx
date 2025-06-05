@@ -98,7 +98,7 @@ export default function DevicesScreen() {
     const initializeData = async () => {
       setLoading(true);
       // 初始化MQTT连接
-      await mqttService.connect();
+      //await mqttService.connect();
       // 获取设备列表
       await fetchDevices();
       setLoading(false);
@@ -108,7 +108,7 @@ export default function DevicesScreen() {
 
     // 组件卸载时断开MQTT连接
     return () => {
-      mqttService.disconnect();
+      //mqttService.disconnect();
     };
   }, [userRole, seniorUuid, filter]);
 

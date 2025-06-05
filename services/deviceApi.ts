@@ -3,7 +3,7 @@ import storage from '@/utils/storage';
 import { ApiErrorType, ApiError } from './api';
 
 // API基本URL
-const API_BASE_URL = 'https://v4.purcloud.ltd:8899/api';
+const API_BASE_URL = 'https://v4.purcloud.ltd:8899';
 
 // 创建axios实例
 const api = axios.create({

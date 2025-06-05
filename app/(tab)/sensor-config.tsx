@@ -4,7 +4,7 @@ import {ThemedView} from '@/components/ThemedView';
 import Search from '@/components/ui/custom/Search';
 import {useAuth} from '@/contexts/AuthContext';
 import {useThemeColor} from '@/hooks/useThemeColor';
-import React, {useMemo, useRef, useState} from 'react';
+import React, {useMemo, useRef, useState, useCallback} from 'react';
 import {Alert, FlatList, StyleSheet, View} from 'react-native';
 import {ActivityIndicator, Button, Card, Chip, Divider, List, ProgressBar, Switch, TextInput} from 'react-native-paper';
 import {mock, Random} from 'mockjs';
@@ -13,6 +13,7 @@ import CardBox from '@/components/ui/custom/CardBox';
 import {BottomSheetFooter, BottomSheetScrollView} from '@gorhom/bottom-sheet';
 import {api} from '@/services/api';
 import dayjs from 'dayjs';
+import { router, useFocusEffect } from 'expo-router';
 
 // 嵌入式设备配置接口
 interface DeviceConfig {
@@ -70,6 +71,7 @@ export default function DeviceConfigScreen() {
     pagination,
     run,
     loading: getUserLoading,
+    refresh
   } = usePagination(
     async (params, keyword = '') => {
       const search_query = keyword.trim();
@@ -87,6 +89,13 @@ export default function DeviceConfigScreen() {
     {
       defaultParams: [{current: 1, pageSize}, searchQuery],
     }
+  );
+
+  // 在页面每次获取焦点时刷新设备列表
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
   );
 
   // 选择设备进行编辑
@@ -238,7 +247,14 @@ export default function DeviceConfigScreen() {
                         mode="contained-tonal"
                         // compact
                         onPress={() => {
-                          handleSelectDevice(device);
+                          router.navigate({
+                            pathname: `/(stack)/device-config/id`,
+                            params: {
+                              device_uuid: device.device_uuid,
+                              master_device_uuid: device.master_uuid === null ? device.device_uuid : device.master_uuid,
+                              owner_uuid: device.owner_uuid,
+                            },
+                          })
                         }}
                         style={styles.editButton}
                         labelStyle={styles.editButtonLabel}

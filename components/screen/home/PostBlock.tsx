@@ -2,14 +2,20 @@ import CardBox from '@/components/ui/custom/CardBox';
 import {api} from '@/services/api';
 import {usePagination} from 'ahooks';
 import {router} from 'expo-router';
-import React, {FC, PropsWithChildren} from 'react';
+import React, {forwardRef, useImperativeHandle, ReactNode} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {Button, List, Text} from 'react-native-paper';
 
-type Props = {};
+type Props = {
+  children?: ReactNode;
+};
 
-const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
-  const {data} = usePagination(
+export interface PostBlockRef {
+  refresh: () => void;
+}
+
+const PostBlock = forwardRef<PostBlockRef, Props>((props, ref) => {
+  const {data, refresh} = usePagination(
     async (params) => {
       const res = await api.get('/articles', {
         params: Object.assign({
@@ -25,7 +31,11 @@ const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
       defaultParams: [{current: 1, pageSize: 4}],
     }
   );
-  console.log(data, '1`111');
+  
+  // 暴露刷新方法给父组件
+  useImperativeHandle(ref, () => ({
+    refresh
+  }));
 
   return (
     <View style={styles.container}>
@@ -65,7 +75,7 @@ const PostBlock: FC<PropsWithChildren<Props>> = (props) => {
       </CardBox>
     </View>
   );
-};
+});
 
 export default PostBlock;
 

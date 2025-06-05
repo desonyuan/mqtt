@@ -4,14 +4,15 @@
 //   // 重定向到tabs首页
 //   return <Redirect href="/(app)/(tabs)" />;
 // }
-import {useState, useEffect, useLayoutEffect} from 'react';
+import {useState, useEffect, useLayoutEffect, useRef} from 'react';
 import {StyleSheet, View, ScrollView, Image, RefreshControl} from 'react-native';
 import {Text, Button, Card, ActivityIndicator, Appbar, useTheme} from 'react-native-paper';
 import {ThemedView} from '@/components/ThemedView';
 import {useAuth} from '@/contexts/AuthContext';
 import apiService from '@/services/api';
-import {router, useNavigation} from 'expo-router';
-import PostBlock from '@/components/screen/home/PostBlock';
+import {router, useNavigation, useFocusEffect} from 'expo-router';
+import PostBlock, {PostBlockRef} from '@/components/screen/home/PostBlock';
+import {useCallback} from 'react';
 
 export default function HomeScreen() {
   const [greeting, setGreeting] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const {logout, userRole} = useAuth();
   const navigation = useNavigation();
+  const postBlockRef = useRef<PostBlockRef>(null);
 
   const fetchHelloMessage = async () => {
     try {
@@ -41,13 +43,34 @@ export default function HomeScreen() {
     }
   };
 
+  const fetchDeviceConfig = ()=> {
+    router.navigate({
+      pathname: `/(stack)/device-config/id`,
+      params: {
+        id: "3c8427c73588",
+        device_uuid:"3c8427c73588",
+        master_device_uuid:"3c8427c73588",
+        owner_uuid:"0197345c-aae5-748b-b9f1-b847693f78fe",
+      },
+    });
+  }
   useEffect(() => {
     fetchHelloMessage();
   }, []);
 
+  // 每次页面获得焦点时刷新文章列表
+  useFocusEffect(
+    useCallback(() => {
+      // 刷新PostBlock中的文章数据
+      postBlockRef.current?.refresh();
+    }, [])
+  );
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchHelloMessage();
+    // 同时刷新文章列表
+    postBlockRef.current?.refresh();
     setRefreshing(false);
   };
 
@@ -99,6 +122,9 @@ export default function HomeScreen() {
           <Button onPress={fetchHelloMessage} disabled={loading}>
             刷新
           </Button>
+          <Button onPress={fetchDeviceConfig}>
+            设备配置
+          </Button>
         </Card.Actions>
       </Card>
 
@@ -113,7 +139,7 @@ export default function HomeScreen() {
           </Text>
         </Card.Content>
       </Card>
-      <PostBlock />
+      <PostBlock ref={postBlockRef} />
     </ScrollView>
   );
 }

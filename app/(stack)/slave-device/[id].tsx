@@ -95,7 +95,7 @@ export default function SlaveDeviceScreen() {
       }
       
       // 确保MQTT连接已经初始化
-      await mqttService.connect();
+      //await mqttService.connect();
       
       // 订阅MQTT主题
       subscribeMqtt();
