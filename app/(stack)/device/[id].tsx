@@ -36,13 +36,13 @@ export default function DeviceScreen() {
   const renderContent = useMemo(() => {
     switch (tab) {
       case 'chart':
-        return <DeviceChart deviceId={deviceId} time={numericTime} />;
+        return <DeviceChart deviceId={deviceId} masterId={deviceId} time={numericTime} />;
       case 'table':
         return <DeviceTable time={numericTime} deviceId={deviceId} />;
       case 'log':
         return <DeviceLog time={numericTime} deviceId={deviceId} />;
       default:
-        return <DeviceList time={numericTime} deviceId={deviceId} master_uuid={user_uuid as string} />;
+        return <DeviceList time={numericTime} deviceId={deviceId} />;
     }
   }, [tab, numericTime, user_uuid]);
 

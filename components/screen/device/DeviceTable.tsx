@@ -1,14 +1,16 @@
 import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import {api} from '@/services/api';
+import {useThemeColor} from '@/hooks/useThemeColor';
 import {usePagination} from 'ahooks';
 import dayjs from 'dayjs';
-import {FC} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {DataTable, Text} from 'react-native-paper';
+import {FC, useEffect, useState} from 'react';
+import {StyleSheet, View, ScrollView, Text} from 'react-native';
+import {Table, Row, TableWrapper} from 'react-native-reanimated-table';
 
 type IProps = {deviceId: string; time: number};
 const pageSize = 20;
+
 interface RowData {
   co2: number;
   device_uuid: string;
@@ -18,7 +20,18 @@ interface RowData {
   temperature: number;
   timestamp: number;
 }
+
 const DeviceTable: FC<IProps> = ({deviceId, time}) => {
+  // 表格状态
+  const [tableData, setTableData] = useState<any[][]>([]);
+  const [tableHead] = useState(['🌡️ 温度', '💧 湿度', '☀️ 光照', '🌱 土壤湿度', '☁️ CO2', '⏱️ 时间']);
+  const [widthArr] = useState([100, 100, 100, 120, 100, 180]);
+  
+  // 主题颜色
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const themeColor = useThemeColor({}, 'tint');
+  
   const {data, run, loading} = usePagination(
     async (params) => {
       const res = await api.get('/device-sensor-data', {
@@ -34,12 +47,42 @@ const DeviceTable: FC<IProps> = ({deviceId, time}) => {
       defaultParams: [{current: 1, pageSize}],
     }
   );
+  
+  // 格式化数据为表格所需格式
+  useEffect(() => {
+    if (data?.raw_data) {
+      const formattedData = data.raw_data.map((item: RowData) => {
+        // 处理值，小于等于-999的显示为0
+        const normalizeValue = (value: number) => value <= -999 ? '0' : value.toFixed(1);
+        
+        // 格式化日期
+        const date = item.timestamp ? dayjs(parseInt((item.timestamp + time) * 1000 + '')) : null;
+        const formattedDate = date ? 
+          `${date.get('year')}/${date.get('month') + 1}/${date.get('date')} ${date.get('hour')}:${date.get('minute')}:${date.get('second')}` : 
+          '时间未知';
+          
+        // 返回行数据
+        return [
+          normalizeValue(item.temperature),
+          normalizeValue(item.humidity),
+          normalizeValue(item.light),
+          normalizeValue(item.soil_moisture),
+          normalizeValue(item.co2),
+          formattedDate
+        ];
+      });
+      
+      setTableData(formattedData);
+    }
+  }, [data, time]);
+  
   const searchHandle = (page = 1) => {
     run({current: page, pageSize});
   };
+  
   return (
     <CardBox
-      containerStyle={{paddingHorizontal: 10}}
+      containerStyle={{paddingHorizontal: 0}}
       scrollable
       loading={loading}
       footerComponent={
@@ -53,51 +96,38 @@ const DeviceTable: FC<IProps> = ({deviceId, time}) => {
         />
       }
     >
-      <DataTable style={styles.p0}>
-        <DataTable.Header style={styles.p0}>
-          <DataTable.Title>🌡️温度</DataTable.Title>
-          <DataTable.Title>💧 湿度</DataTable.Title>
-          <DataTable.Title>☀️ 光照</DataTable.Title>
-          <DataTable.Title>🌱 土壤温度</DataTable.Title>
-          <DataTable.Title>☁️ CO2</DataTable.Title>
-          <DataTable.Title numeric>⏱️ 时间</DataTable.Title>
-        </DataTable.Header>
-
-        {data?.raw_data.map((item: RowData, index: number) => {
-          console.log(item, '111111111111');
-
-          const temperature = Number(item.temperature.toFixed(1));
-          const humidity = Number(item.humidity.toFixed(1));
-          const light = Number(item.light.toFixed(1));
-          const soil_moisture = Number(item.soil_moisture.toFixed(1));
-          const co2 = Number(item.co2.toFixed(1));
-          const date = item.timestamp ? dayjs(parseInt((item.timestamp + time) * 1000 + '')) : null;
-
-          return (
-            <DataTable.Row key={index}>
-              <DataTable.Cell>{temperature <= -999 ? 'null' : temperature}</DataTable.Cell>
-              <DataTable.Cell>{humidity <= -999 ? 'null' : humidity}</DataTable.Cell>
-              <DataTable.Cell>{light <= -999 ? 'null' : light}</DataTable.Cell>
-              <DataTable.Cell>{soil_moisture <= -999 ? 'null' : soil_moisture}</DataTable.Cell>
-              <DataTable.Cell>{co2 <= -999 ? 'null' : co2}</DataTable.Cell>
-              <DataTable.Cell numeric>
-                <View style={styles.dateContainer}>
-                  {date && (
-                    <>
-                      <Text style={styles.dateOfYear}>
-                        {date.get('year')}/{date.get('month') + 1}/{date.get('date')}
-                      </Text>
-                      <Text style={styles.dateOfMonth}>
-                        {date.get('hour')}:{date.get('second')}:{date.get('minute')}
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </DataTable.Cell>
-            </DataTable.Row>
-          );
-        })}
-      </DataTable>
+      <View style={[styles.container, {backgroundColor}]}>
+        <ScrollView horizontal={true}>
+          <View>
+            <Table borderStyle={{borderWidth: 1, borderColor: '#C1C0B9'}}>
+              <Row 
+                data={tableHead} 
+                widthArr={widthArr} 
+                style={styles.header}
+                textStyle={{...styles.headerText, color: '#FFFFFF'}}
+              />
+            </Table>
+            <ScrollView style={styles.dataWrapper}>
+              <Table borderStyle={{borderWidth: 1, borderColor: '#C1C0B9'}}>
+                {
+                  tableData.map((rowData, index) => (
+                    <Row
+                      key={index}
+                      data={rowData}
+                      widthArr={widthArr}
+                      style={[
+                        styles.row,
+                        index % 2 === 1 ? {backgroundColor: 'rgba(247, 246, 231, 0.8)'} : null
+                      ]}
+                      textStyle={{...styles.text, color: textColor}}
+                    />
+                  ))
+                }
+              </Table>
+            </ScrollView>
+          </View>
+        </ScrollView>
+      </View>
     </CardBox>
   );
 };
@@ -105,19 +135,33 @@ const DeviceTable: FC<IProps> = ({deviceId, time}) => {
 export default DeviceTable;
 
 const styles = StyleSheet.create({
-  p0: {
-    padding: 0,
+  container: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
   },
-  dateContainer: {
-    alignItems: 'flex-end',
+  header: {
+    height: 50,
+    backgroundColor: '#537791',
   },
-  dateOfYear: {
-    fontWeight: 'bold',
-    fontSize: 11,
+  headerText: {
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: 'Sarasa',
   },
-  dateOfMonth: {
-    // fontWeight: 'bold',
-    fontSize: 11,
-    color: '#333',
+  text: {
+    textAlign: 'center',
+    fontWeight: '400',
+    padding: 6,
+    fontFamily: 'Sarasa',
   },
+  dataWrapper: {
+    marginTop: -1,
+    maxHeight: 500,
+  },
+  row: {
+    height: 50,
+    backgroundColor: 'rgba(231, 230, 225, 0.8)',
+  }
 });

@@ -1,8 +1,10 @@
 import CardBox from '@/components/ui/custom/CardBox';
 import Pagination from '@/components/ui/custom/Pagination';
 import {api} from '@/services/api';
+import deviceApi from '@/services/deviceApi';
 import {$dayjs} from '@/utils/dayjs';
 import {usePagination, useRequest} from 'ahooks';
+import { router } from 'expo-router';
 import React, {FC, useState} from 'react';
 import {FlatList, StyleSheet, View} from 'react-native';
 import {List, Text, useTheme} from 'react-native-paper';
@@ -24,9 +26,9 @@ interface DeviceType {
   time: null;
 }
 
-type IProps = {deviceId: string; master_uuid: string; time: number};
+type IProps = {deviceId: string; time: number};
 
-const DeviceList: FC<IProps> = ({deviceId, master_uuid}) => {
+const DeviceList: FC<IProps> = ({deviceId}) => {
   const [slaveDevices, setSlaveDevices] = useState<DeviceType[]>([]);
   const theme = useTheme();
   //  获取设备列表
@@ -75,6 +77,35 @@ const DeviceList: FC<IProps> = ({deviceId, master_uuid}) => {
                 style={{
                   backgroundColor: isEvent ? '#eee' : 'transparent',
                   borderRadius: 10,
+                }}
+                onPress={async () => {
+                  try {
+                    // 使用 deviceApi.getAllDevices 查询该设备的 master_uuid
+                    const devices = await deviceApi.getAllDevices(1, 10, device.device_uuid);
+                    console.log(devices);
+                    // 如果找到设备信息，则使用其 master_uuid
+                    const masterUuid = devices.length > 0 ? devices[0].master_uuid : device.master_uuid;
+                    
+                    router.navigate({
+                      pathname: `/(stack)/slave-device/[id]`,
+                      params: {
+                        id: device.device_uuid,
+                        time: device.time,
+                        masterId: masterUuid, // 使用查询到的 master_uuid
+                      },
+                    });
+                  } catch (error) {
+                    console.error('获取主设备ID失败:', error);
+                    // 出错时使用原有的 master_uuid
+                    router.navigate({
+                      pathname: `/(stack)/slave-device/[id]`,
+                      params: {
+                        id: device.device_uuid,
+                        time: device.time,
+                        masterId: device.master_uuid,
+                      },
+                    });
+                  }
                 }}
                 title={device.device_uuid}
                 description={`最后活跃: ${device.time ?? $dayjs().format('YYYY/MM/DD HH:mm:ss')}`}
